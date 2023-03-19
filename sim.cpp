@@ -1,81 +1,94 @@
-#include <iostream>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "rtl.h"
 
-// const char* program = ">+>++>+++>++++>[-]+[]";
-// const char program[] = "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++.[-][++++]";
-const char program[] = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
-const uint8_t program_size = (uint8_t) sizeof(program);
+#define PROG_ADDR_TYPE uint16_t
+#define PROG_ADDR_PLACEHOLDER "04h"
 
-uint8_t opcode(char instr) {
-    switch (instr) {
-        case '>': return 0;
-        case '<': return 1;
-        case '+': return 2;
-        case '-': return 3;
-        case '.': return 4;
-        case ',': return 5;
-        case '[': return 6;
-        case ']': return 7;
+#define DATA_ADDR_TYPE uint16_t
+#define DATA_ADDR_PLACEHOLDER "04h"
+
+
+int main(int argc, char** argv) {
+    if (argc <= 1) {
+        printf("must supply BF program file on command line\n");
+        return 1;
     }
-    return 0;
-}
+    bool debug = false;
+    if (argc >= 3 && strcmp(argv[2], "debug") == 0) debug = true;
 
-int main() {
-    printf("sim starting\n");
+    // Create machine
+    cxxrtl_design::p_SimTop machine;
+    machine.p_clock.set<bool>(false);
+    machine.p_reset.set<bool>(false);
+    machine.p_in.set<uint8_t>(0);
+    machine.p_in__clock.set<bool>(false);
 
-    cxxrtl_design::p_BF bf;
-    bf.p_clock.set<bool>(false);
-
-    // Load program into
-    printf("loading program\n");
-    for (uint8_t addr = 0; addr < program_size-1; addr++) {
-        bf.p_instr__addr.set<uint8_t>(addr);
-        bf.p_instr__in.set<uint8_t>(opcode(program[addr]));
-        bf.p_instr__write.set<bool>(true);
-        bf.step();
-        bf.p_instr__write.set<bool>(false);
-        bf.step();
+    // Read program into memory
+    size_t program_index = 0;
+    printf("Reading program:\n");
+    FILE* program_file = fopen(argv[1], "r");
+    if (program_file == nullptr) {
+        perror("unable to open program file");
+        return 1;
     }
-    bf.p_instr__addr.set<uint8_t>(0);
-    bf.p_instr__in.set<uint8_t>(0);
-
-    // Verify program
-    printf("verifying program:\n");
-    for (size_t addr = 0; addr < bf.memory_p_prog.depth; addr++) {
-        std::cout << bf.memory_p_prog[addr].str() << ' ';
+    while (program_index < machine.memory_p_prog_2e_mem.depth - 1) {
+        int prog_char = fgetc(program_file);
+        if (prog_char == -1) {
+            if (feof(program_file)) break;
+            perror("failed to read from file");
+            return 1;
+        }
+        printf("%c", (char)prog_char);
+        machine.memory_p_prog_2e_mem[program_index].set<uint8_t>((uint8_t)prog_char);
+        program_index++;
     }
-    printf("\n");
+    fclose(program_file);
+    printf("\nRead %lu program bytes\n", program_index - 1);
+    // Add null byte at the end so programs terminate
+    machine.memory_p_prog_2e_mem[machine.memory_p_prog_2e_mem.depth - 1].set<uint8_t>(0);
+
+    // Start simulation
+    printf("Sim starting:\n");
+    machine.p_reset.set<bool>(true);
+    machine.step();
+    machine.p_reset.set<bool>(false);
+    machine.step();
 
     // Run simulation
-    printf("running simulation\n");
-    uint8_t prev_output = 0;
-    bf.p_in.set<uint8_t>(0);
-    while (true) {
-        uint8_t ip = bf.p_ip.get<uint8_t>();
-        uint8_t current_instr = bf.p_current__instr.get<uint8_t>();
-        uint8_t cursor = bf.p_cursor.get<uint8_t>();
-        uint8_t memval = bf.p_current__cell.get<uint8_t>();
-        uint8_t state = bf.p_state.get<uint8_t>();
-        uint8_t depth = bf.p_depth.get<uint8_t>();
-        printf("state: %hhx, depth: %hhx, ip: %hhx, instruction: %hhx, cusor: %hhx, val: %hhx\n",
-                state, depth, ip, current_instr, cursor, memval);
+    uint32_t cycle = 0;
+    while (!machine.p_halted.get<bool>()) {
+        uint8_t instr = machine.p_instruction.get<uint8_t>();
+        uint8_t val = machine.p_read__val.get<uint8_t>();
+        if (debug)
+            printf("state %02hhx (depth %04hx): program[%" PROG_ADDR_PLACEHOLDER "x]=%02hhx ('%c'), mem[%" DATA_ADDR_PLACEHOLDER "x]=%02hhx ('%c')\n",
+                machine.p_bf_2e_state.get<uint8_t>(),
+                machine.p_bf_2e_depth.get<uint16_t>(),
+                machine.p_ip.get<PROG_ADDR_TYPE>(),
+                instr,
+                isprint(instr) ? (char) instr : ' ',
+                machine.p_cursor.get<DATA_ADDR_TYPE>(),
+                val,
+                isprint(val) ? (char)val : ' ');
         
-        // Clock
-        bf.p_clock.set<bool>(true);
-        bf.step();
-        bf.p_clock.set<bool>(false);
-        bf.step();
+        // Rising edge
+        machine.p_clock.set<bool>(true);
+        machine.step();
 
-        uint8_t output = bf.p_out.get<uint8_t>();
-        if (output != prev_output) {
-            printf("%c", (char)output);
-            prev_output = output;
-        }
+        // If the output has been clocked then print the output char
+        if (machine.p_out__enable.get<bool>())
+            printf("%c", (char)machine.p_out.get<uint8_t>());
+
+        // Falling edge
+        machine.p_clock.set<bool>(false);
+        machine.step();
+
+        cycle++;
     }
-    printf("\n");
+    printf("\nHalted. Ran %u cycles\n", cycle-1);
 
     return 0;
 }

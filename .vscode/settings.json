@@ -56,5 +56,11 @@
         "streambuf": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp"
+    },
+    "[brainfuck]": {
+        "editor.fontLigatures": false
+    },
+    "[systemverilog]": {
+        "editor.tabSize": 2
     }
 }

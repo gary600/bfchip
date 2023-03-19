@@ -3,3 +3,4 @@
 rtl.cpp
 rtl.h
 sim
+obj_dir/
