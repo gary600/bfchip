@@ -130,7 +130,7 @@ module BF #(
       // Actual memory writing occurs in the always_comb block
       Clear: begin
         if (cursor == (1<<DATA_ADDR_SIZE)-1)
-          State <= Exec;
+          state <= Exec;
         cursor <= cursor + 1;
       end
     endcase
@@ -170,6 +170,7 @@ module BF #(
 
       default: ;
     endcase
+  end
 
   assign halted = (state == Halt);
 
