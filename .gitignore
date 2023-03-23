@@ -1,6 +1,3 @@
-*.o
-*.v
-rtl.cpp
-rtl.h
-sim
-obj_dir/
+/build/
+
+__pycache__/

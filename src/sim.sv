@@ -30,7 +30,8 @@ module DataMemory #(
   assign read_val = mem[cursor];
 
   always_ff @(posedge clock)
-    mem[cursor] <= write_val; // TODO: impl clearing
+    if (write_enable)
+      mem[cursor] <= write_val; // TODO: impl clearing
 
 endmodule
 
@@ -56,9 +57,9 @@ module SimTop #(
   input logic clock, reset
 );
 
-  ProgramMemory #(PROG_ADDR_SIZE) prog(.*);
-  DataMemory #(DATA_ADDR_SIZE) data(.*);
-  BF #(PROG_ADDR_SIZE, DATA_ADDR_SIZE) bf(.*);
+  ProgramMemory #(.PROG_ADDR_SIZE(PROG_ADDR_SIZE)) prog(.*);
+  DataMemory #(.DATA_ADDR_SIZE(DATA_ADDR_SIZE)) data(.*);
+  BF #(.PROG_ADDR_SIZE(PROG_ADDR_SIZE), .DATA_ADDR_SIZE(DATA_ADDR_SIZE)) bf(.*);
 
   // initial begin
   //   forever begin
@@ -67,6 +68,13 @@ module SimTop #(
   //     clock = 0;
   //     #5;
   //   end
-  // end
+  // end// the "macro" to dump signals
+  `ifdef COCOTB_SIM
+  initial begin
+    $dumpfile("build/sim_top.vcd");
+    $dumpvars(0, SimTop);
+    #1;
+  end
+  `endif
 
 endmodule

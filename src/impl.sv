@@ -1,24 +1,25 @@
 `default_nettype none
 
 module BF #(
-  parameter PROG_ADDR_SIZE = 8,
-  parameter DATA_ADDR_SIZE = 8
+  parameter PROG_ADDR_SIZE = 16,
+  parameter DATA_ADDR_SIZE = 16
 )(
-  output logic [PROG_ADDR_SIZE-1:0] ip,
-  input logic [7:0] instruction,
+  output logic [PROG_ADDR_SIZE-1:0] ip, // Instruction pointer
+  input logic [7:0] instruction, // Current instruction
 
-  output logic [DATA_ADDR_SIZE-1:0] cursor,
-  output logic [7:0] write_val,
-  output logic write_enable,
-  input logic [7:0] read_val,
+  output logic [DATA_ADDR_SIZE-1:0] cursor, // Data pointer
+  input logic [7:0] read_val, // The value currently at the cursor
+  output logic [7:0] write_val, // The value to write to the cursor
+  output logic write_enable, // On the next clock pulse, write
 
-  output logic [7:0] out,
-  output logic out_enable,
+  output logic [7:0] out, // The value being output
+  output logic out_enable, // On the next clock pulse, the output is valid
 
-  input logic [7:0] in,
-  input logic in_clock,
+  input logic [7:0] in, // The value of the next input byte
+  input logic in_valid, // The input byte is valid
+  output logic in_reading, // On the next clock pulse, the processor has taken the input
 
-  output logic halted,
+  output logic halted, // The processor is halted
   input logic clock, reset
 );
   // Machine state
@@ -29,11 +30,10 @@ module BF #(
     SeekForward,
     // on clock, seek backward an instruction, returning to Exec if it is a matching [
     SeekBackward,
+    // wait for in_valid to be 1, read value, and go back to Exec
+    WaitInput,
     // do nothing (execution finished)
-    Halt,
-    // Clear memory
-    Clear
-    // TODO: wait for input
+    Halt
   } state;
   // Loop depth, for matching up brackets
   logic [15:0] depth;
@@ -43,7 +43,7 @@ module BF #(
       ip <= '0;
       cursor <= '0;
       
-      state <= Clear;
+      state <= Exec;
       depth <= '0;
     end
     else unique case (state)
@@ -60,8 +60,14 @@ module BF #(
             ip <= ip + 1;
           end
 
-          // logic for { + - . , } handled by the always_comb
-          "+", "-", ".", ",": ip <= ip + 1;
+          // logic for { + - . } handled by the always_comb
+          "+", "-", ".": ip <= ip + 1;
+
+          // If input is queued, then stay in Exec, otherwise wait
+          ",": if (in_valid)
+            ip <= ip + 1;
+          else
+            state <= WaitInput;
 
           "[": begin
             if (read_val == '0) begin
@@ -124,15 +130,14 @@ module BF #(
         endcase
       end
 
-      Halt: ; // do nothing, machine is halted
-
-      // Clear all memory, then go to Exec with cursor at cell 0
-      // Actual memory writing occurs in the always_comb block
-      Clear: begin
-        if (cursor == (1<<DATA_ADDR_SIZE)-1)
-          state <= Exec;
-        cursor <= cursor + 1;
+      // Waiting for input: if input is ready, then go back to Exec and go to next instruction
+      // otherwise, keep waiting
+      WaitInput: if (in_valid) begin
+        state <= Exec;
+        ip <= ip + 1;
       end
+
+      Halt: ; // do nothing, machine is halted
     endcase
   end
 
@@ -141,6 +146,7 @@ module BF #(
     out = '0;
     write_enable = 0;
     out_enable = 0;
+    in_reading = 0;
 
     case (state)
       Exec: case (instruction)
@@ -156,18 +162,20 @@ module BF #(
           out = read_val;
           out_enable = 1;
         end
-        ",": begin
-          write_val = in; // TODO: wait for ready
+        ",": if (in_valid) begin
+          write_val = in;
           write_enable = 1;
+          in_reading = 1;
         end
         default: ;
       endcase
-      
-      Clear: begin
-        write_val = '0;
-        write_enable = 1;
-      end
 
+      WaitInput: if (in_valid) begin
+        write_val = in;
+        write_enable = 1;
+        in_reading = 1;
+      end
+      
       default: ;
     endcase
   end
