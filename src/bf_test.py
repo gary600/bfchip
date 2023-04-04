@@ -32,20 +32,46 @@ async def init_bf(dut, prog):
     # Start clock
     await cocotb.start(gen_clock(dut))
 
-async def assert_output_and_terminate(dut, correct, timeout=100_000_000):
-    if isinstance(correct, str):
-        correct = correct.encode("utf-8")
+async def assert_bf(dut, stdout, stdin=b"", timeout=100_000_000):
+    if isinstance(stdout, str):
+        stdout = stdout.encode("utf-8")
+    if isinstance(stdin, str):
+        stdin = stdin.encode("utf-8")
+
     out = b""
+
+    # Set up initial input
+    dut.in_valid.value = 1
+    if stdin:
+        dut.in_val.value = stdin[0]
+        stdin = stdin[1:]
+    else:
+        dut.in_val.value = 0
+
     for _ in range(timeout):
         await RisingEdge(dut.clock)
-        dbg(f"({dut.ip.value.integer})={dut.instruction.value.buff} : [{dut.cursor.value.integer}]={dut.read_val.value.integer}", end="\r")
-        await FallingEdge(dut.clock)
+        dbg(f"({dut.ip.value.integer})={dut.instr.value.buff} : [{dut.cursor.value.integer}]={dut.read_val.value.integer}", end="\r")
+        
+        # Retrieve output
         if dut.out_enable.value.integer:
-            out += dut.out.value.buff
+            dbg(f"printing value: {dut.out_val.value}")
+            out += dut.out_val.value.buff
+        
+        # Update input
+        if (dut.in_reading.value.integer):
+            dbg(f"reading value: {dut.in_val.value}")
+            if stdin:
+                dut.in_val.value = stdin[0]
+                stdin = stdin[1:]
+            else:
+                dut.in_val.value = 0
+
+        # Exit if halted
         if dut.halted.value.integer:
-            assert(out == correct)
+            assert(out == stdout)
             dbg()
             return
+        
     raise AssertionError("Test did not finish within timeout")
 
 
@@ -65,22 +91,39 @@ async def hello_world(dut):
         "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
     )
 
-    await assert_output_and_terminate(dut, "Hello World!\n")
+    await assert_bf(dut, "Hello World!\n")
 
 # Takes too long to run
 @cocotb.test(skip=True)
 async def cristofani_arraysize(dut):
     await init_bf(dut, "++++[>++++++<-]>[>+++++>+++++++<<-]>>++++<[[>[[>>+<<-]<]>>>-]>-[>+>+<<-]>]+++++[>+++++++<<++>-]>.<<.")
-    await assert_output_and_terminate(dut, "#\n")
+    await assert_bf(dut, "#\n")
 
 # Takes around 10 minutes to run
 @cocotb.test(skip=True)
 async def bosman_quine(dut):
-    await init_bf(dut, "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]")
-    await assert_output_and_terminate(dut, "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]")
+    quine = "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]"
+    await init_bf(dut, quine)
+    await assert_bf(dut, quine)
 
 @cocotb.test()
 async def cristofani_h(dut):
     await init_bf(dut, """[]++++++++++[>>+>+>++++++[<<+<+++>>>-]<<<<-]
 "A*$";?@![#>>+<<]>[>>]<<<<[>++<[-]]>.>.""")
-    await assert_output_and_terminate(dut, "H\n")
+    await assert_bf(dut, "H\n")
+
+@cocotb.test()
+async def cristofani_input_test(dut):
+    await init_bf(dut, ">,>+++++++++,>+++++++++++[<++++++<++++++<+>>>-]<<.>.<<-.>.>.<<.")
+    await assert_bf(dut, "LB\nLB\n", stdin="\n")
+
+# TODO: test does not terminate
+@cocotb.test(skip=True)
+async def self_hello_world(dut):
+    await init_bf(dut, """>>>+[[-]>>[-]++>+>+++++++[<++++>>++<-]++>>+>+>+++++[>++>++++++<<-]+>>>,<++[[>[
+->>]<[>>]<<-]<[<]<+>>[>]>[<+>-[[<+>-]>]<[[[-]<]++<-[<+++++++++>[<->-]>>]>>]]<<
+]<]<[[<]>[[>]>>[>>]+[<<]<[<]<+>>-]>[>]+[->>]<<<<[[<<]<[<]+<<[+>+<<-[>-->+<<-[>
++<[>>+<<-]]]>[<+>-]<]++>>-->[>]>>[>>]]<<[>>+<[[<]<]>[[<<]<[<]+[-<+>>-[<<+>++>-
+[<->[<<+>>-]]]<[>+<-]>]>[>]>]>[>>]>>]<<[>>+>>+>>]<<[->>>>>>>>]<<[>.>>>>>>>]<<[
+>->>>>>]<<[>,>>>]<<[>+>]<<[+<<]<]""")
+    await assert_bf(dut, "Hello World!", stdin="++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.!")

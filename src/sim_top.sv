@@ -1,23 +1,21 @@
 `default_nettype none
 
 module ProgramMemory #(
-  parameter PROG_ADDR_SIZE = 8
+  parameter PROG_ADDR_SIZE = 16
 )(
-  output logic [7:0] instruction,
+  output logic [7:0] instr,
   input logic [PROG_ADDR_SIZE-1:0] ip
 );
 
   // Preloaded by the simulator
   reg [7:0] mem [0:(1<<PROG_ADDR_SIZE)-1];
 
-  assign instruction = mem[ip];
-
-  // initial mem = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.";
+  assign instr = mem[ip];
 
 endmodule
 
 module DataMemory #(
-  parameter DATA_ADDR_SIZE = 8
+  parameter DATA_ADDR_SIZE = 16
 )(
   output logic [7:0] read_val,
   input logic [DATA_ADDR_SIZE-1:0] cursor,
@@ -40,22 +38,28 @@ module SimTop #(
   parameter DATA_ADDR_SIZE = 16
 )(
   output logic [PROG_ADDR_SIZE-1:0] ip,
-  output logic [7:0] instruction,
+  output logic [7:0] instr,
+  output logic instr_valid,
 
   output logic [DATA_ADDR_SIZE-1:0] cursor,
+  output logic [7:0] read_val,
   output logic [7:0] write_val,
   output logic write_enable,
-  output logic [7:0] read_val,
 
-  output logic [7:0] out,
+  output logic [7:0] out_val,
   output logic out_enable,
 
-  input logic [7:0] in,
-  input logic in_clock,
+  input logic [7:0] in_val,
+  input logic in_valid,
+  output logic in_reading,
 
   output logic halted,
+  output logic enable,
   input logic clock, reset
 );
+
+  assign instr_valid = 1;
+  assign enable = 1;
 
   ProgramMemory #(.PROG_ADDR_SIZE(PROG_ADDR_SIZE)) prog(.*);
   DataMemory #(.DATA_ADDR_SIZE(DATA_ADDR_SIZE)) data(.*);
@@ -68,7 +72,9 @@ module SimTop #(
   //     clock = 0;
   //     #5;
   //   end
-  // end// the "macro" to dump signals
+  // end
+  
+  // the "macro" to dump signals
   `ifdef COCOTB_SIM
   initial begin
     $dumpfile("build/sim_top.vcd");

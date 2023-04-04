@@ -5,22 +5,23 @@ module BF #(
   parameter DATA_ADDR_SIZE = 16
 )(
   output logic [PROG_ADDR_SIZE-1:0] ip, // Instruction pointer
-  input logic [7:0] instruction, // Current instruction
+  input logic [7:0] instr, // Current instruction
+  input logic instr_valid,
 
   output logic [DATA_ADDR_SIZE-1:0] cursor, // Data pointer
   input logic [7:0] read_val, // The value currently at the cursor
   output logic [7:0] write_val, // The value to write to the cursor
   output logic write_enable, // On the next clock pulse, write
 
-  output logic [7:0] out, // The value being output
+  output logic [7:0] out_val, // The value being output
   output logic out_enable, // On the next clock pulse, the output is valid
 
-  input logic [7:0] in, // The value of the next input byte
+  input logic [7:0] in_val, // The value of the next input byte
   input logic in_valid, // The input byte is valid
   output logic in_reading, // On the next clock pulse, the processor has taken the input
 
   output logic halted, // The processor is halted
-  input logic clock, reset
+  input logic clock, reset, enable
 );
   // Machine state
   enum logic [2:0] {
@@ -46,10 +47,10 @@ module BF #(
       state <= Exec;
       depth <= '0;
     end
-    else unique case (state)
+    else if (enable) unique case (state)
       // Regular execution: evaluate instructions
       Exec:
-        case (instruction)
+        case (instr)
           ">": begin
             cursor <= cursor + 1;
             ip <= ip + 1;
@@ -92,11 +93,11 @@ module BF #(
           default: ip <= ip + 1;
         endcase
       
-      // TODO: some issue with loops
+      // TODO: some issue with loops?
 
       // Seek forward to the matching ], ending with ip on the instruction after the ]
       SeekForward: begin
-        case (instruction)
+        case (instr)
           "[": depth <= depth + 1;
           "]":
             if (depth == 0)
@@ -111,7 +112,7 @@ module BF #(
 
       // Seek backward to the matching [, ending with ip on the instruction after the [
       SeekBackward: begin
-        case (instruction)
+        case (instr)
           "[":
             if (depth == 0) begin
               state <= Exec;
@@ -143,13 +144,13 @@ module BF #(
 
   always_comb begin
     write_val = '0;
-    out = '0;
+    out_val = '0;
     write_enable = 0;
     out_enable = 0;
     in_reading = 0;
 
     case (state)
-      Exec: case (instruction)
+      Exec: case (instr)
         "+": begin
           write_val = read_val + 1;
           write_enable = 1;
@@ -159,11 +160,11 @@ module BF #(
           write_enable = 1;
         end
         ".": begin
-          out = read_val;
+          out_val = read_val;
           out_enable = 1;
         end
         ",": if (in_valid) begin
-          write_val = in;
+          write_val = in_val;
           write_enable = 1;
           in_reading = 1;
         end
@@ -171,11 +172,11 @@ module BF #(
       endcase
 
       WaitInput: if (in_valid) begin
-        write_val = in;
+        write_val = in_val;
         write_enable = 1;
         in_reading = 1;
       end
-      
+
       default: ;
     endcase
   end
