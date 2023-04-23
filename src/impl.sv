@@ -6,7 +6,6 @@ module BF #(
 )(
   output logic [PROG_ADDR_SIZE-1:0] ip, // Instruction pointer
   input logic [7:0] instr, // Current instruction
-  input logic instr_valid,
 
   output logic [DATA_ADDR_SIZE-1:0] cursor, // Data pointer
   input logic [7:0] read_val, // The value currently at the cursor

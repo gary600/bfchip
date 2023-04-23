@@ -39,7 +39,6 @@ module SimTop #(
 )(
   output logic [PROG_ADDR_SIZE-1:0] ip,
   output logic [7:0] instr,
-  output logic instr_valid,
 
   output logic [DATA_ADDR_SIZE-1:0] cursor,
   output logic [7:0] read_val,
