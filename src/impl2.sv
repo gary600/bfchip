@@ -1,15 +1,19 @@
 `default_nettype none
 
+let max(a, b) = (a > b) ? a : b;
+
 module BF #(
-  parameter ADDR_WIDTH = 15,
+  parameter DATA_ADDR_WIDTH = 15,
+  parameter PROG_ADDR_WIDTH = 15,
   parameter DATA_WIDTH = 8,
-  parameter DEPTH_WIDTH = 12
+  parameter DEPTH_WIDTH = 12,
+  parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),
+  parameter BUS_WIDTH = max(DATA_WIDTH, 8)
 )(
   // Bus interface
   output logic [ADDR_WIDTH-1:0] addr,
-  output logic [DATA_WIDTH-1:0] val_out,
-  input  logic [DATA_WIDTH-1:0] val_in,
-  // input  logic valid,
+  output logic [BUS_WIDTH-1:0] val_out,
+  input  logic [BUS_WIDTH-1:0] val_in,
 
   // Bus control
   output BusOp bus_op,
@@ -22,10 +26,10 @@ module BF #(
 );
 
   // Program memory interface
-  logic [ADDR_WIDTH-1:0] pc;
+  logic [PROG_ADDR_WIDTH-1:0] pc;
 
   // Data memory interface
-  logic [ADDR_WIDTH-1:0] cursor;
+  logic [DATA_ADDR_WIDTH-1:0] cursor;
   logic [DATA_WIDTH-1:0] acc;
 
   // Loop depth register
@@ -54,44 +58,103 @@ module BF #(
     default: val_out = '0;
   endcase
 
-  // Register controls
-  always_ff @(posedge clock)
-    if ()
+  // Sequential logic
+  always_ff @(posedge clock, posedge reset)
+    if (reset) begin
+      pc <= '0;
+      cursor <= '0;
+      acc <= '0;
+      depth <= '0;
 
-  enum logic [4:0] {
+      state <= Fetch;
+    end
+    else begin
+      case (ucode.pc_op)
+        PcInc: pc <= pc + 1;
+        PcDec: pc <= pc - 1;
+        default: ;
+      endcase
+
+      case (ucode.cursor_op)
+        CursorInc: cursor <= cursor + 1;
+        CursorDec: cursor <= cursor - 1;
+        default: ;
+      endcase
+
+      case (ucode.acc_op)
+        AccLoad: acc <= val_in;
+        default: ;
+      endcase
+
+      case (ucode.depth_op)
+        DepthClear: depth <= '0;
+        DepthInc: depth <= depth + 1;
+        DepthDec: depth <= depth - 1;
+        default: ;
+      endcase
+
+      state <= next_state;
+    end
+
+  enum logic [5:0] {
     Fetch,
     Decode,
     Halt,
+
     IncFetch,
     IncLoad,
     IncStore,
+
     DecFetch,
     DecLoad,
     DecStore,
+
     Right,
+
     Left,
+
     PrintFetch,
     PrintLoad,
     PrintStore,
+
     ReadFetch,
     ReadLoad,
-    ReadStore
+    ReadStore,
+
+    BrzFetchVal,
+    BrzDecodeVal,
+    BrzFetchInstr,
+    BrzDecodeInstr,
+    BrzInc,
+    BrzDec,
+    
+    BrnzFetchVal,
+    BrnzDecodeVal,
+    BrnzPcDec1,
+    BrnzPcDec2,
+    BrnzFetchInstr,
+    BrnzDecodeInstr,
+    BrnzInc,
+    BrnzDec,
+    BrnzPcInc1,
+    BrnzPcInc2
   } state, next_state;
 
-
   always_comb begin
+    // default values
     halted = 0;
+    next_state = Halt;
 
     case (state)
       /// Misc states ///
       // Request instruction
       Fetch: begin
-        ucode = {ReadProg, AddrPc, ValNone, PcInc, AccKeep, DepthClear};
+        ucode = {ReadProg, AddrPc, ValNone, PcInc, CursorKeep, AccKeep, DepthClear};
         next_state = Decode;
       end
       // Receive instruction and decode
       Decode: begin
-        ucode = {BusNone, AddrNone, ValNone, PcKeep, AccKeep, DepthClear}
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear}
         case (val_in)
           "+": next_state = IncFetch;     // "Inc"
           "-": next_state = DecFetch;     // "Dec"
@@ -193,31 +256,108 @@ module BF #(
       end
 
       /// Instruction "[" (Brz) ///
+      // Request cell value to check
+      BrzFetchVal: begin
+        ucode = {BusReadData, AddrCursor, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
+        next_state = BrzDecodeVal;
+      end
+      // Branch forward if zero
+      BrzDecodeVal: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
+        if (val_in == '0)
+          next_state = BrzFetchInstr;
+        else
+          next_state = Fetch;
+      end
       // Request instruction to check
-      BrzFetch: begin
+      BrzFetchInstr: begin
         ucode = {BusReadProg, AddrPc, ValNone, PcInc, CursorKeep, AccKeep, DepthKeep};
-        next_state = BrzDecode;
+        next_state = BrzDecodeInstr;
       end
       // Receive instruction and decode
       // TODO: optimize? if I make it Mealy then this is way simpler
-      BrzDecode: begin
+      BrzDecodeInstr: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthKeep};
         case (val_in)
           "[": next_state = BrzInc;
           "]": next_state = (depth == '0) ? Fetch : BrzDec;
           8'h00: next_state = Halt;
-          default: next_state = BrzFetch;
+          default: next_state = BrzFetchInstr;
         endcase
       end
       // Increment depth
       BrzInc: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthInc};
-        next_state = BrzFetch;
+        next_state = BrzFetchInstr;
       end
       // Decrement depth
       BrzDec: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthDec};
-        next_state = BrzFetch;
+        next_state = BrzFetchInstr;
+      end
+      
+      /// Instruction "]" (Brnz) ///
+      // Request cell value to check
+      BrnzFetchVal: begin
+        ucode = {BusReadData, AddrCursor, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
+        next_state = BrnzDecodeVal;
+      end
+      // Branch forward if zero
+      BrnzDecodeVal: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
+        if (val_in == '0)
+          next_state = Fetch;
+        else
+          next_state = BrnzPcDec1;
+      end
+      // Move PC to instruction before the ]
+      BrnzPcDec1: begin
+        ucode = {BusNone, AddrNone, ValNone, PcDec, CursorKeep, AccKeep, DepthClear};
+        next_state = BrnzDecPc2;
+      end
+      BrnzDecPc2: begin
+        ucode = {BusNone, AddrNone, ValNone, PcDec, CursorKeep, AccKeep, DepthClear};
+        next_state = BrnzFetchInstr;
+      end
+      // Request instruction to check
+      BrnzFetchInstr: begin
+        ucode = {BusReadProg, AddrPc, ValNone, PcDec, CursorKeep, AccKeep, DepthKeep};
+        next_state = BrnzDecodeInstr;
+      end
+      // Receive instruction and decode
+      BrnzDecodeInstr: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthKeep};
+        case (val_in)
+          "[": next_state = (depth == '0) ? BrnzPcInc1 : BrnzDec;
+          "]": next_state = BrnzInc;
+          8'h00: next_state = Halt;
+          default: next_state = BrnzFetchInstr;
+        endcase
+      end
+      // Increment depth
+      BrnzInc: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthInc};
+        next_state = BrnzFetchInstr;
+      end
+      // Decrement depth
+      BrnzDec: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthDec};
+        next_state = BrnzFetchInstr;
+      end
+      // Move PC to instruction after the [
+      BrnzPcInc1: begin
+        ucode = {BusNone, AddrNone, ValNone, PcInc, CursorKeep, AccKeep, DepthClear};
+        next_state = BrnzPcInc2;
+      end
+      BrnzPcInc2: begin
+        ucode = {BusNone, AddrNone, ValNone, PcInc, CursorKeep, AccKeep, DepthClear};
+        next_state = Fetch;
+      end
+    
+      // should be unreachable
+      default: begin
+        ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthKeep};
+        next_state = Halt;
       end
 
     endcase
