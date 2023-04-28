@@ -22,6 +22,7 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
     
     memory = [0] * 65536
 
+    # Reset and initial values
     dut.clock.value = 0
     dut.val_in.value = 0
     dut.reset.value = 1
@@ -34,12 +35,12 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
     while not dut.halted.value.integer:
         entered_loop = True
         dut.clock.value = 1
+        # Get values right before they vanish
         bus_op = dut.bus_op.value
         addr = dut.addr.value
         val_out = dut.val_out.value
         await Timer(10, "ns")
         dut.clock.value = 0
-        dbg(dut.state)
         if bus_op == 0b010: # BusReadProg
             if addr.integer < len(prog):
                 dut.val_in.value = prog[addr.integer]
@@ -70,9 +71,6 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
     assert(entered_loop)
     dbg(stdout, actual_stdout)
     assert(stdout == actual_stdout)
-        
-    
-
 
 @cocotb.test()
 async def hello_world(dut):
@@ -109,7 +107,7 @@ http://www.hevanet.com/cristofd/brainfuck/]"""
 
 # Takes too long to run
 @cocotb.test(skip=True)
-async def quine(dut):
+async def bosman_quine(dut):
     prog = "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]"
     await test_program(dut, prog, "", prog)
 
