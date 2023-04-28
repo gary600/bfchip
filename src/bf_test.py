@@ -1,129 +1,158 @@
 import cocotb
 from cocotb.triggers import Timer, FallingEdge, RisingEdge
-from itertools import zip_longest
+from cocotb.clock import Clock
 import os
 
 def dbg(*args, **kwargs):
     if "BF_DEBUG" in os.environ:
         print(*args, **kwargs)
 
-def write_mem(mem, val):
-    if isinstance(val, str):
-        val = val.encode("utf-8")
-    for a, b in zip_longest(mem, val):
-        if a is None:
-            break
-        if b is None:
-            b = 0
-        a.value = b
-
-async def init_bf(dut, prog):
-    # Load program and clear memory
-    write_mem(dut.prog.mem, prog)
-    write_mem(dut.data.mem, b"")
-
-    # Reset DUT
-    dut.clock.value = 0
-    dut.reset.value = 1
-    await Timer(1, units="ns")
-    dut.reset.value = 0
-    await Timer(1, units="ns")
-    
-    # Start clock
-    await cocotb.start(gen_clock(dut))
-
-async def assert_bf(dut, stdout, stdin=b"", timeout=100_000_000):
-    if isinstance(stdout, str):
-        stdout = stdout.encode("utf-8")
+async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
+    if isinstance(prog, str):
+        prog = prog.encode("ascii")
     if isinstance(stdin, str):
-        stdin = stdin.encode("utf-8")
+        stdin = stdin.encode("ascii")
+    if isinstance(stdout, str):
+        stdout = stdout.encode("ascii")
+    if isinstance(stdout, str):
+        failread = failread.encode("ascii")
+    stdin = bytearray(stdin)
 
-    out = b""
+    actual_stdout = bytearray()
+    
+    memory = [0] * 65536
 
-    # Set up initial input
-    dut.in_valid.value = 1
-    if stdin:
-        dut.in_val.value = stdin[0]
-        stdin = stdin[1:]
-    else:
-        dut.in_val.value = 0
-
-    for _ in range(timeout):
-        await RisingEdge(dut.clock)
-        dbg(f"({dut.ip.value.integer})={dut.instr.value.buff} : [{dut.cursor.value.integer}]={dut.read_val.value.integer}", end="\r")
-        
-        # Retrieve output
-        if dut.out_enable.value.integer:
-            dbg(f"printing value: {dut.out_val.value}")
-            out += dut.out_val.value.buff
-        
-        # Update input
-        if (dut.in_reading.value.integer):
-            dbg(f"reading value: {dut.in_val.value}")
-            if stdin:
-                dut.in_val.value = stdin[0]
-                stdin = stdin[1:]
-            else:
-                dut.in_val.value = 0
-
-        # Exit if halted
-        if dut.halted.value.integer:
-            assert(out == stdout)
-            dbg()
-            return
-        
-    raise AssertionError("Test did not finish within timeout")
-
-
-async def gen_clock(dut):
     dut.clock.value = 0
-    while (True):
-        await Timer(0.5, units="us")
+    dut.val_in.value = 0
+    dut.reset.value = 1
+    await Timer(10, "ns")
+    dut.reset.value = 0
+    dut.enable.value = 1
+    await Timer(10, "ns")
+
+    entered_loop = False
+    while not dut.halted.value.integer:
+        entered_loop = True
         dut.clock.value = 1
-        await Timer(0.5, units="us")
+        bus_op = dut.bus_op.value
+        addr = dut.addr.value
+        val_out = dut.val_out.value
+        await Timer(10, "ns")
         dut.clock.value = 0
+        dbg(dut.state)
+        if bus_op == 0b010: # BusReadProg
+            if addr.integer < len(prog):
+                dut.val_in.value = prog[addr.integer]
+            else:
+                dut.val_in.value = 0
+            dbg("reading program")
+        elif bus_op == 0b100: # BusReadData
+            dut.val_in.value = memory[addr.integer]
+            dbg("reading data")
+        elif bus_op == 0b101: # BusWriteData
+            memory[addr.integer] = val_out.integer
+            dbg("writing data")
+        elif bus_op == 0b110: # BusReadIo
+            if len(stdin) > 0:
+                char = stdin.pop(0)
+            elif failread is None:
+                raise ValueError("reading on empty input is failure")
+            else:
+                char = failread
+            dut.val_in.value = char
+            dbg("reading io")
+        elif bus_op == 0b111: # BusWriteIo
+            actual_stdout.append(val_out.integer)
+            dbg("writing io")
+            
+        await Timer(10, "ns")
+    
+    assert(entered_loop)
+    dbg(stdout, actual_stdout)
+    assert(stdout == actual_stdout)
+        
+    
 
 
 @cocotb.test()
 async def hello_world(dut):
-    await init_bf(
+    await test_program(
         dut,
-        "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
+        "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.",
+        "",
+        "Hello World!\n"
     )
 
-    await assert_bf(dut, "Hello World!\n")
+@cocotb.test()
+async def cristofani_word_count(dut):
+    wc_prog = """
+>>>+>>>>>+>>+>>+[<<],[
+    -[-[-[-[-[-[-[-[<+>-[>+<-[>-<-[-[-[<++[<++++++>-]<
+        [>>[-<]<[>]<-]>>[<+>-[<->[-]]]]]]]]]]]]]]]]
+    <[-<<[-]+>]<<[>>>>>>+<<<<<<-]>[>]>>>>>>>+>[
+        <+[
+            >+++++++++<-[>-<-]++>[<+++++++>-[<->-]+[+>>>>>>]]
+            <[>+<-]>[>>>>>++>[-]]+<
+        ]>[-<<<<<<]>>>>
+    ],
+]+<++>>>[[+++++>>>>>>]<+>+[[<++++++++>-]<.<<<<<]>>>>>>>>]
+[Counts lines, words, bytes. Assumes no-change-on-EOF or EOF->0.
+Daniel B Cristofani (cristofdathevanetdotcom)
+http://www.hevanet.com/cristofd/brainfuck/]"""
+    await test_program(
+        dut,
+        wc_prog,
+        "example 123\nasdf",
+        "\t1\t3\t16\n",
+        failread=0
+    )
 
 # Takes too long to run
 @cocotb.test(skip=True)
-async def cristofani_arraysize(dut):
-    await init_bf(dut, "++++[>++++++<-]>[>+++++>+++++++<<-]>>++++<[[>[[>>+<<-]<]>>>-]>-[>+>+<<-]>]+++++[>+++++++<<++>-]>.<<.")
-    await assert_bf(dut, "#\n")
+async def quine(dut):
+    prog = "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]"
+    await test_program(dut, prog, "", prog)
 
-# Takes around 10 minutes to run
-@cocotb.test(skip=True)
-async def bosman_quine(dut):
-    quine = "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]"
-    await init_bf(dut, quine)
-    await assert_bf(dut, quine)
-
+# "Tests for several obscure problems"
 @cocotb.test()
 async def cristofani_h(dut):
-    await init_bf(dut, """[]++++++++++[>>+>+>++++++[<<+<+++>>>-]<<<<-]
-"A*$";?@![#>>+<<]>[>>]<<<<[>++<[-]]>.>.""")
-    await assert_bf(dut, "H\n")
+    await test_program(
+        dut,
+        """[]++++++++++[>>+>+>++++++[<<+<+++>>>-]<<<<-]
+"A*$";?@![#>>+<<]>[>>]<<<<[>++<[-]]>.>.""",
+        "",
+        "H\n"
+    )
 
 @cocotb.test()
-async def cristofani_input_test(dut):
-    await init_bf(dut, ">,>+++++++++,>+++++++++++[<++++++<++++++<+>>>-]<<.>.<<-.>.>.<<.")
-    await assert_bf(dut, "LB\nLB\n", stdin="\n")
+async def cristofani_rot13(dut):
+    await test_program(
+        dut,
+        """,
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>++++++++++++++<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>>+++++[<----->-]<<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>++++++++++++++<-
+[>+<-[>+<-[>+<-[>+<-[>+<-
+[>++++++++++++++<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>>+++++[<----->-]<<-
+[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
+[>++++++++++++++<-
+[>+<-]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]>.[-]<,]
 
-# TODO: test does not terminate
-@cocotb.test(skip=True)
-async def self_hello_world(dut):
-    await init_bf(dut, """>>>+[[-]>>[-]++>+>+++++++[<++++>>++<-]++>>+>+>+++++[>++>++++++<<-]+>>>,<++[[>[
-->>]<[>>]<<-]<[<]<+>>[>]>[<+>-[[<+>-]>]<[[[-]<]++<-[<+++++++++>[<->-]>>]>>]]<<
-]<]<[[<]>[[>]>>[>>]+[<<]<[<]<+>>-]>[>]+[->>]<<<<[[<<]<[<]+<<[+>+<<-[>-->+<<-[>
-+<[>>+<<-]]]>[<+>-]<]++>>-->[>]>>[>>]]<<[>>+<[[<]<]>[[<<]<[<]+[-<+>>-[<<+>++>-
-[<->[<<+>>-]]]<[>+<-]>]>[>]>]>[>>]>>]<<[>>+>>+>>]<<[->>>>>>>>]<<[>.>>>>>>>]<<[
->->>>>>]<<[>,>>>]<<[>+>]<<[+<<]<]""")
-    await assert_bf(dut, "Hello World!", stdin="++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.!")
+of course any function char f(char) can be made easily on the same principle
+
+[Daniel B Cristofani (cristofdathevanetdotcom)
+http://www.hevanet.com/cristofd/brainfuck/]
+""",
+        "This is aTest of the rot13",
+        "Guvf vf nGrfg bs gur ebg13",
+        failread=0
+    )

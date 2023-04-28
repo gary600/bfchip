@@ -3,7 +3,7 @@ TOPLEVEL_LANG ?= verilog
 
 # VERILOG_SOURCES += $(BUILD_DIR)/all.v
 
-TOPLEVEL = SimTop
+TOPLEVEL = BF
 MODULE = src.bf_test
 
 SIM_BUILD = $(BUILD_DIR)/sim_build

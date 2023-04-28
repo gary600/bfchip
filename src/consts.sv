@@ -1,18 +1,18 @@
 `default_nettype none
 
-typedef enum logic [3:0] {
-  BusNone,
-  BusReadProg,
-  BusReadData,
-  BusWriteData,
-  BusReadIo,
-  BusWriteIo
+typedef enum logic [2:0] {
+  BusNone       = 3'b000,
+  BusReadProg   = 3'b010,
+  BusReadData   = 3'b100,
+  BusWriteData  = 3'b101,
+  BusReadIo     = 3'b110,
+  BusWriteIo    = 3'b111
 } BusOp;
 
 typedef enum logic [1:0] {
   AddrNone,
   AddrPc,
-  AddrCursor,
+  AddrCursor
 } AddrSrc;
 
 typedef enum logic [1:0] {
@@ -28,7 +28,7 @@ typedef enum logic [1:0] {
   PcDec
 } PcOp;
 
-typedef enum logic {
+typedef enum logic [1:0] {
   CursorKeep,
   CursorInc,
   CursorDec
@@ -39,7 +39,7 @@ typedef enum logic {
   AccLoad
 } AccOp;
 
-typedef enum loigc {
+typedef enum logic [1:0] {
   DepthKeep,
   DepthClear,
   DepthInc,
@@ -55,3 +55,7 @@ typedef struct packed {
   AccOp acc_op;
   DepthOp depth_op;
 } Ucode;
+
+function int max(int a, int b);
+  max = (a > b) ? a : b;
+endfunction

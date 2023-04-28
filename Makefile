@@ -5,7 +5,8 @@ SV2V ?= sv2v
 
 SV_FILES += $(wildcard $(SRC_DIR)/*.sv)
 # for CocoTB
-export VERILOG_SOURCES += $(SRC_DIR)/impl.sv $(SRC_DIR)/sim_top.sv
+#export VERILOG_SOURCES += $(SRC_DIR)/impl.sv $(SRC_DIR)/sim_top.sv
+export VERILOG_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv
 
 DIR_GUARD = mkdir -p $(@D)
 export PYTHONDONTWRITEBYTECODE=1
