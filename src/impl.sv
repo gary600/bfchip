@@ -1,7 +1,5 @@
 `default_nettype none
 
-// `include "src/new/consts.sv"
-
 module BF #(
   parameter DATA_ADDR_WIDTH = 15,
   parameter PROG_ADDR_WIDTH = 15,

@@ -2,6 +2,9 @@ import cocotb
 from cocotb.triggers import Timer, FallingEdge, RisingEdge
 from cocotb.clock import Clock
 import os
+from pathlib import Path
+import tomli
+import sys
 
 def dbg(*args, **kwargs):
     if "BF_DEBUG" in os.environ:
@@ -72,85 +75,22 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
     dbg(stdout, actual_stdout)
     assert(stdout == actual_stdout)
 
-@cocotb.test()
-async def hello_world(dut):
-    await test_program(
-        dut,
-        "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.",
-        "",
-        "Hello World!\n"
-    )
-
-@cocotb.test()
-async def cristofani_word_count(dut):
-    wc_prog = """
->>>+>>>>>+>>+>>+[<<],[
-    -[-[-[-[-[-[-[-[<+>-[>+<-[>-<-[-[-[<++[<++++++>-]<
-        [>>[-<]<[>]<-]>>[<+>-[<->[-]]]]]]]]]]]]]]]]
-    <[-<<[-]+>]<<[>>>>>>+<<<<<<-]>[>]>>>>>>>+>[
-        <+[
-            >+++++++++<-[>-<-]++>[<+++++++>-[<->-]+[+>>>>>>]]
-            <[>+<-]>[>>>>>++>[-]]+<
-        ]>[-<<<<<<]>>>>
-    ],
-]+<++>>>[[+++++>>>>>>]<+>+[[<++++++++>-]<.<<<<<]>>>>>>>>]
-[Counts lines, words, bytes. Assumes no-change-on-EOF or EOF->0.
-Daniel B Cristofani (cristofdathevanetdotcom)
-http://www.hevanet.com/cristofd/brainfuck/]"""
-    await test_program(
-        dut,
-        wc_prog,
-        "example 123\nasdf",
-        "\t1\t3\t16\n",
-        failread=0
-    )
-
-# Takes too long to run
-@cocotb.test(skip=True)
-async def bosman_quine(dut):
-    prog = "-->+++>+>+>+>+++++>++>++>->+++>++>+>>>>>>>>>>>>>>>>->++++>>>>->+++>+++>+++>+++>+++>+++>+>+>>>->->>++++>+>>>>->>++++>+>+>>->->++>++>++>++++>+>++>->++>++++>+>+>++>++>->->++>++>++++>+>+>>>>>->>->>++++>++>++>++++>>>>>->>>>>+++>->++++>->->->+++>>>+>+>+++>+>++++>>+++>->>>>>->>>++++>++>++>+>+++>->++++>>->->+++>+>+++>+>++++>>>+++>->++++>>->->++>++++>++>++++>>++[-[->>+[>]++[<]<]>>+[>]<--[++>++++>]+[<]<<++]>>>[>]++++>++++[--[+>+>++++<<[-->>--<<[->-<[--->>+<<[+>+++<[+>>++<<]]]]]]>+++[>+++++++++++++++<-]>--.<<<]"
-    await test_program(dut, prog, "", prog)
-
-# "Tests for several obscure problems"
-@cocotb.test()
-async def cristofani_h(dut):
-    await test_program(
-        dut,
-        """[]++++++++++[>>+>+>++++++[<<+<+++>>>-]<<<<-]
-"A*$";?@![#>>+<<]>[>>]<<<<[>++<[-]]>.>.""",
-        "",
-        "H\n"
-    )
-
-@cocotb.test()
-async def cristofani_rot13(dut):
-    await test_program(
-        dut,
-        """,
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>++++++++++++++<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>>+++++[<----->-]<<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>++++++++++++++<-
-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>++++++++++++++<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>>+++++[<----->-]<<-
-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
-[>++++++++++++++<-
-[>+<-]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]>.[-]<,]
-
-of course any function char f(char) can be made easily on the same principle
-
-[Daniel B Cristofani (cristofdathevanetdotcom)
-http://www.hevanet.com/cristofd/brainfuck/]
-""",
-        "This is aTest of the rot13",
-        "Guvf vf nGrfg bs gur ebg13",
-        failread=0
-    )
+# Construct test cases from files
+tests_dir = Path(__file__).parent / "tests"
+for test_file in tests_dir.iterdir():
+    with open(test_file, "rb") as f:
+        test = tomli.load(f)
+    
+    async def test_fn(dut, test=test):
+        await test_program(
+            dut,
+            test["program"],
+            test.get("input", ""),
+            test.get("output", ""),
+            failread=test.get("input_end", None)
+        )
+    
+    test_fn.__name__ = test["name"]
+    test_fn.__qualname__ = test["name"]
+    vars()[test["name"]] = \
+        cocotb.test(skip=test.get("slow", False), stage=test.get("stage", 0))(test_fn)

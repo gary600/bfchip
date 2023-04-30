@@ -1,12 +1,20 @@
 `default_nettype none
 
 typedef enum logic [2:0] {
-  BusNone       = 3'b000,
-  BusReadProg   = 3'b010,
-  BusReadData   = 3'b100,
-  BusWriteData  = 3'b101,
-  BusReadIo     = 3'b110,
-  BusWriteIo    = 3'b111
+  IoNone      = 3'b000, // No output on bus
+  IoOpcode    = 3'b001, // Outputting opcode
+  IoAddrHi    = 3'b010, // Outputting Address MSB
+  IoAddrLo    = 3'b011, // Outputting Address LSB
+  IoReadWrite = 3'b100  // Outputting write / inputting read (waits until Ready)
+} IoOp;
+
+typedef enum logic [2:0] {
+  BusNone       = 3'b000, // No operation
+  BusReadProg   = 3'b010, // Read program memory
+  BusReadData   = 3'b100, // Read data memory
+  BusWriteData  = 3'b101, // Write data memory
+  BusReadIo     = 3'b110, // Read IO
+  BusWriteIo    = 3'b111  // Write IO
 } BusOp;
 
 typedef enum logic [1:0] {
