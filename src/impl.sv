@@ -5,8 +5,10 @@ module BF #(
   parameter PROG_ADDR_WIDTH = 15,
   parameter DATA_WIDTH = 8,
   parameter DEPTH_WIDTH = 12,
-  parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),
-  parameter BUS_WIDTH = max(DATA_WIDTH, 8)
+//  parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),
+  parameter ADDR_WIDTH = 15,
+//  parameter BUS_WIDTH = max(DATA_WIDTH, 8)
+  parameter BUS_WIDTH = 8
 )(
   // Bus interface
   output logic [ADDR_WIDTH-1:0] addr,
@@ -20,21 +22,25 @@ module BF #(
   output logic halted,
   input  logic clock,
   input  logic reset,
-  input  logic enable
+  input  logic enable,
+
+  // Debug outputs
+  output BFState state, next_state,
+  output Ucode ucode
 );
 
   // Program memory interface
-  logic [PROG_ADDR_WIDTH-1:0] pc;
+  logic [PROG_ADDR_WIDTH-1:0] pc, next_pc;
 
   // Data memory interface
-  logic [DATA_ADDR_WIDTH-1:0] cursor;
-  logic [DATA_WIDTH-1:0] acc;
+  logic [DATA_ADDR_WIDTH-1:0] cursor, next_cursor;
+  logic [DATA_WIDTH-1:0] acc, next_acc;
 
   // Loop depth register
-  logic [DEPTH_WIDTH-1:0] depth;
+  logic [DEPTH_WIDTH-1:0] depth, next_depth;
   
   // Current microcode instruction
-  Ucode ucode;
+  //Ucode ucode;
 
   // Bus operation
   assign bus_op = ucode.bus_op;
@@ -56,6 +62,34 @@ module BF #(
     default: val_out = '0;
   endcase
 
+  always_comb case (ucode.pc_op)
+    PcKeep: next_pc = pc;
+    PcInc: next_pc = pc + 1;
+    PcDec: next_pc = pc - 1;
+    default: next_pc = pc;
+  endcase
+
+  always_comb case (ucode.cursor_op)
+    CursorKeep: next_cursor = cursor;
+    CursorInc: next_cursor = cursor + 1;
+    CursorDec: next_cursor = cursor - 1;
+    default: next_cursor = cursor;
+  endcase
+
+  always_comb case (ucode.acc_op)
+    AccKeep: next_acc = acc;
+    AccLoad: next_acc = val_in;
+    default: next_acc = acc;
+  endcase
+
+  always_comb case (ucode.depth_op)
+    DepthKeep: next_depth = depth;
+    DepthClear: next_depth = '0;
+    DepthInc: next_depth = depth + 1;
+    DepthDec: next_depth = depth - 1;
+    default: next_depth = depth;
+  endcase
+
   // Sequential logic
   always_ff @(posedge clock, posedge reset)
     if (reset) begin
@@ -67,76 +101,14 @@ module BF #(
       state <= Fetch;
     end
     else if (enable) begin
-      case (ucode.pc_op)
-        PcInc: pc <= pc + 1;
-        PcDec: pc <= pc - 1;
-        default: ;
-      endcase
-
-      case (ucode.cursor_op)
-        CursorInc: cursor <= cursor + 1;
-        CursorDec: cursor <= cursor - 1;
-        default: ;
-      endcase
-
-      case (ucode.acc_op)
-        AccLoad: acc <= val_in;
-        default: ;
-      endcase
-
-      case (ucode.depth_op)
-        DepthClear: depth <= '0;
-        DepthInc: depth <= depth + 1;
-        DepthDec: depth <= depth - 1;
-        default: ;
-      endcase
+      // Update registers and state
+      pc <= next_pc;
+      cursor <= next_cursor;
+      acc <= next_acc;
+      depth <= next_depth;
 
       state <= next_state;
     end
-
-  enum logic [5:0] {
-    Fetch,
-    Decode,
-    Halt,
-
-    IncFetch,
-    IncLoad,
-    IncStore,
-
-    DecFetch,
-    DecLoad,
-    DecStore,
-
-    Right,
-
-    Left,
-
-    PrintFetch,
-    PrintLoad,
-    PrintStore,
-
-    ReadFetch,
-    ReadLoad,
-    ReadStore,
-
-    BrzFetchVal,
-    BrzDecodeVal,
-    BrzFetchInstr,
-    BrzDecodeInstr,
-    BrzInc,
-    BrzDec,
-
-    BrnzFetchVal,
-    BrnzDecodeVal,
-    BrnzPcDec1,
-    BrnzPcDec2,
-    BrnzFetchInstr,
-    BrnzDecodeInstr,
-    BrnzInc,
-    BrnzDec,
-    BrnzPcInc1,
-    BrnzPcInc2
-  } state, next_state;
 
   always_comb begin
     // default values

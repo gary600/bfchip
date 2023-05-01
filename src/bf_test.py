@@ -23,7 +23,7 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
 
     actual_stdout = bytearray()
     
-    memory = [0] * 65536
+    memory = bytearray(65536)
 
     # Reset and initial values
     dut.clock.value = 0

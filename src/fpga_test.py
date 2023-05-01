@@ -21,7 +21,12 @@ class Inputs:
         self.chip = chip
     
     def set(self):
-        self.chip.set_all_inputs((self.enable << 9) | (self.op_done << 8) | self.bus_in)
+        val = (self.enable << 9) | (self.op_done << 8) | self.bus_in
+        self.chip.set_all_inputs(val)
+        print(f"{val:012b}")
+
+    def __repr__(self):
+        return f"bus_in={self.bus_in:08b}, op_done={self.op_done:b}, enable={self.enable:b}"
 
 class Outputs:
     def __init__(self, chip):
@@ -36,8 +41,11 @@ class Outputs:
         self.state = (out & 0x700) >> 8
         self.halted = (out & 0x800) >> 11
 
+    def __repr__(self):
+        return f"bus_out={self.bus_out:08b}, state={self.state:03b}, halted={self.halted:b}"
 
-chip = Chip("COM7")
+
+chip = Chip("/dev/ttyUSB1")
 inputs = Inputs(chip)
 outputs = Outputs(chip)
 
@@ -60,6 +68,9 @@ data = bytearray(65536)
 
 while True:
     outputs.get()
+    print(outputs)
+    if outputs.halted:
+        break
     if outputs.state == IoOpcode:
         opcode = outputs.bus_out
     elif outputs.state == IoAddrHi:
@@ -82,4 +93,7 @@ while True:
         elif opcode == BusWriteIo:
             print(outputs.bus_out)
         inputs.set()
+    print(inputs)
     chip.step_clock()
+
+print("halted")

@@ -11,7 +11,7 @@ export VERILOG_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv
 DIR_GUARD = mkdir -p $(@D)
 export PYTHONDONTWRITEBYTECODE=1
 
-.PHONY: all clean test fpga
+.PHONY: all clean test fpga stat
 all: sim
 
 # Delegate to CocoTB
@@ -30,6 +30,7 @@ fpga: $(BUILD_DIR)/bitstream.bit
 
 FPGA_SOURCES = $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv $(SRC_DIR)/fpga_top.sv $(SRC_DIR)/debugbus.sv
 $(BUILD_DIR)/synthesis.json: $(FPGA_SOURCES)
+	$(DIR_GUARD)
 	yosys -p "read_verilog -sv $(FPGA_SOURCES); synth_ice40 -json $(BUILD_DIR)/synthesis.json -top top"
 
 $(BUILD_DIR)/pnr.asc: $(BUILD_DIR)/synthesis.json $(SRC_DIR)/constraints.pcf
@@ -37,3 +38,5 @@ $(BUILD_DIR)/pnr.asc: $(BUILD_DIR)/synthesis.json $(SRC_DIR)/constraints.pcf
 
 $(BUILD_DIR)/bitstream.bit: $(BUILD_DIR)/pnr.asc
 	icepack $(BUILD_DIR)/pnr.asc $(BUILD_DIR)/bitstream.bit
+
+stat: $(BUILD_DIR)/synthesis.json

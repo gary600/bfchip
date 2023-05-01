@@ -64,6 +64,50 @@ typedef struct packed {
   DepthOp depth_op;
 } Ucode;
 
+typedef enum logic [5:0] {
+  Fetch,
+  Decode,
+  Halt,
+
+  IncFetch,
+  IncLoad,
+  IncStore,
+
+  DecFetch,
+  DecLoad,
+  DecStore,
+
+  Right,
+
+  Left,
+
+  PrintFetch,
+  PrintLoad,
+  PrintStore,
+
+  ReadFetch,
+  ReadLoad,
+  ReadStore,
+
+  BrzFetchVal,
+  BrzDecodeVal,
+  BrzFetchInstr,
+  BrzDecodeInstr,
+  BrzInc,
+  BrzDec,
+
+  BrnzFetchVal,
+  BrnzDecodeVal,
+  BrnzPcDec1,
+  BrnzPcDec2,
+  BrnzFetchInstr,
+  BrnzDecodeInstr,
+  BrnzInc,
+  BrnzDec,
+  BrnzPcInc1,
+  BrnzPcInc2
+} BFState;
+
 function int max(int a, int b);
   max = (a > b) ? a : b;
 endfunction
