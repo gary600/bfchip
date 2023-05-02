@@ -50,11 +50,12 @@ outputs = Outputs(chip)
 
 print("resetting")
 chip.set_reset(1)
-time.sleep(0.005)
+chip.step_clock()
 chip.set_reset(0)
 
 inputs.enable = 1
 inputs.set()
+outputs.get()
 
 # pseudo-registers
 opcode = 0
@@ -64,12 +65,13 @@ addr_lo = 0
 # memory
 prog = bytearray(b"++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")
 data = bytearray(65536)
+output = bytearray()
 
-while True:
+cycles = 0
+
+while not outputs.halted:
     outputs.get()
-    print(outputs)
-    if outputs.halted:
-        break
+    # print(outputs)
     if outputs.state == IoOpcode:
         opcode = outputs.bus_out
     elif outputs.state == IoAddrHi:
@@ -83,19 +85,23 @@ while True:
                 inputs.bus_in = 0
             else:
                 inputs.bus_in = prog[addr] 
-            print(f"reading program: {chr(inputs.bus_in)}")
+            print(f"reading program [{addr:04x}]: {chr(inputs.bus_in)}")
         elif opcode == BusReadData:
             inputs.bus_in = data[addr]
+            print(f"reading data    [{addr:04x}]: {inputs.bus_in}")
         elif opcode == BusWriteData:
             data[addr] = outputs.bus_out
+            print(f"writing data    [{addr:04x}]: {outputs.bus_out}")
         elif opcode == BusReadIo:
             inputs.bus_in = 0 #TODO:
+            print(f"reading io (unimplemented)")
         elif opcode == BusWriteIo:
-            print(outputs.bus_out)
+            print(f"writing io                  : {chr(outputs.bus_out)}")
+            output.append(outputs.bus_out)
         inputs.op_done = 1
-    inputs.set()
-    print(inputs)
-    time.sleep(0.1)
+        inputs.set()
+    # print(inputs)
     chip.step_clock()
+    cycles += 1
 
-print("halted")
+print(f"halted, ran {cycles} cycles. output: {output}")

@@ -16,9 +16,12 @@ module my_chip (
   assign io_out = {halted, state, bus_out};
   //assign io_out = {halted, state, 2'b0, bfstate};
 
-  logic [7:0] bus_in = io_in[7:0];
-  logic op_done = io_in[8];
-  logic enable = io_in[9];
+  logic [7:0] bus_in;
+  assign bus_in = io_in[7:0];
+  logic op_done;
+  assign op_done = io_in[8];
+  logic enable;
+  assign enable = io_in[9];
 
   // BF interface
   logic [14:0] addr;
@@ -55,7 +58,6 @@ module my_chip (
     cache_out = 0;
     cache_in = 0;
     bus_out = '0;
-    val_in = '0;
 
     case (state)
       IoNone: begin
