@@ -91,7 +91,7 @@ module BF #(
   endcase
 
   // Sequential logic
-  always_ff @(posedge clock, posedge reset)
+  always_ff @(posedge clock)
     if (reset) begin
       pc <= '0;
       cursor <= '0;

@@ -7,10 +7,14 @@ module my_chip (
   input logic reset // Important: Reset is ACTIVE-HIGH
 );
 
+  logic halted;
+  logic bf_enable;
+
   // Outputs / inputs
   logic [7:0] bus_out;
   IoOp state, next_state;
   assign io_out = {halted, state, bus_out};
+  //assign io_out = {halted, state, 2'b0, bfstate};
 
   logic [7:0] bus_in = io_in[7:0];
   logic op_done = io_in[8];
@@ -20,7 +24,7 @@ module my_chip (
   logic [14:0] addr;
   logic [7:0] val_in, val_out;
   BusOp bus_op;
-  logic halted;
+
   BFState bfstate;
 
   BF bf (
@@ -32,8 +36,10 @@ module my_chip (
     .clock,
     .reset,
     .enable(enable && bf_enable),
+    // Debug outputs
     .state(bfstate),
-    .next_state()
+    .next_state(),
+    .ucode()
   );
 
   BusOp op_cache;
@@ -41,20 +47,22 @@ module my_chip (
   logic [7:0] val_cache;
 
   // Control signals
-  logic bf_enable;
-  logic cache;
+  logic cache_out;
+  logic cache_in;
 
   always_comb begin
     bf_enable = 0;
-    cache = 0;
+    cache_out = 0;
+    cache_in = 0;
     bus_out = '0;
     val_in = '0;
 
     case (state)
       IoNone: begin
         bf_enable = 1;
-        cache = 1;
-        bus_out = {bus_op, bfstate[4:0]};
+        cache_out = 1;
+        // bus_out = {2'b0, bfstate}; // debug outputs
+        bus_out = val_in;
 
         if (bus_op != BusNone)
           next_state = IoOpcode;
@@ -78,13 +86,10 @@ module my_chip (
       end
       IoReadWrite: begin
         bus_out = val_cache;
-        val_in = bus_in;
+        cache_in = 1;
 
-        if (op_done) begin
-          bf_enable = 1;
-
+        if (op_done)
           next_state = IoNone;
-        end
         else 
           next_state = IoReadWrite;
       end
@@ -92,18 +97,19 @@ module my_chip (
     endcase
   end
 
-  always_ff @(posedge clock, posedge reset)
+  always_ff @(posedge clock)
     if (reset) begin
       state <= IoNone;
-      op_cache <= '0;
+      op_cache <= BusNone;
     end
     else if (enable) begin
       state <= next_state;
-      if (cache) begin
+      if (cache_out) begin
         op_cache <= bus_op;
         addr_cache <= addr;
         val_cache <= val_out;
       end
+      if (cache_in) val_in <= bus_in;
     end
 
 endmodule

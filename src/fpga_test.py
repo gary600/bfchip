@@ -23,7 +23,6 @@ class Inputs:
     def set(self):
         val = (self.enable << 9) | (self.op_done << 8) | self.bus_in
         self.chip.set_all_inputs(val)
-        print(f"{val:012b}")
 
     def __repr__(self):
         return f"bus_in={self.bus_in:08b}, op_done={self.op_done:b}, enable={self.enable:b}"
@@ -81,19 +80,22 @@ while True:
         addr = (addr_hi << 8) | addr_lo
         if opcode == BusReadProg:
             if addr >= len(prog):
-                outputs.bus_out = 0
+                inputs.bus_in = 0
             else:
-                outputs.bus_out = prog[addr]
+                inputs.bus_in = prog[addr] 
+            print(f"reading program: {chr(inputs.bus_in)}")
         elif opcode == BusReadData:
-            outputs.bus_out = data[addr]
+            inputs.bus_in = data[addr]
         elif opcode == BusWriteData:
-            data[addr] = inputs.bus_in
+            data[addr] = outputs.bus_out
         elif opcode == BusReadIo:
-            outputs.bus_out = 0 #TODO:
+            inputs.bus_in = 0 #TODO:
         elif opcode == BusWriteIo:
             print(outputs.bus_out)
-        inputs.set()
+        inputs.op_done = 1
+    inputs.set()
     print(inputs)
+    time.sleep(0.1)
     chip.step_clock()
 
 print("halted")
