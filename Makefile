@@ -46,3 +46,12 @@ $(BUILD_DIR)/bitstream.bit: $(BUILD_DIR)/pnr.asc
 	icepack $(BUILD_DIR)/pnr.asc $(BUILD_DIR)/bitstream.bit
 
 stat: $(BUILD_DIR)/synthesis.json
+
+# Tapeout stuff
+chip: $(BUILD_DIR)/chip.v
+
+CHIP_SOURCES = $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv
+
+$(BUILD_DIR)/chip.v: $(CHIP_SOURCES)
+	$(DIR_GUARD)
+	$(SV2V) -w $(BUILD_DIR)/chip.v $(CHIP_SOURCES)
