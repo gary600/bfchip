@@ -2,6 +2,7 @@ export BUILD_DIR ?= $(PWD)/build
 export SRC_DIR ?= $(PWD)/src
 
 SV2V ?= sv2v
+YOSYS ?= yosys
 
 SV_FILES += $(wildcard $(SRC_DIR)/*.sv)
 # for CocoTB
@@ -12,15 +13,16 @@ export VERILOG_SOURCES = $(BUILD_DIR)/all_sim.v
 DIR_GUARD = mkdir -p $(@D)
 export PYTHONDONTWRITEBYTECODE=1
 
-.PHONY: all clean test fpga stat
+.PHONY: all clean test fpga stat chip
 all: sim
-
-# Delegate to CocoTB
-test: $(VERILOG_SOURCES)
-	$(MAKE) --no-print-directory -f cocotb.mk
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# Testbench stuff: delegate to CocoTB
+test: $(VERILOG_SOURCES)
+	$(MAKE) --no-print-directory -f cocotb.mk
+
 
 $(BUILD_DIR)/all_sim.v: $(_VERILOG_SOURCES)
 	$(DIR_GUARD)
@@ -37,7 +39,7 @@ $(BUILD_DIR)/all_fpga.v: $(FPGA_SOURCES)
 
 $(BUILD_DIR)/synthesis.json: $(BUILD_DIR)/all_fpga.v
 	$(DIR_GUARD)
-	yosys -p "read_verilog -sv $(BUILD_DIR)/all_fpga.v; synth_ice40 -json $(BUILD_DIR)/synthesis.json -top top"
+	$(YOSYS) -p "read_verilog -sv $(BUILD_DIR)/all_fpga.v; synth_ice40 -json $(BUILD_DIR)/synthesis.json -top top"
 
 $(BUILD_DIR)/pnr.asc: $(BUILD_DIR)/synthesis.json $(SRC_DIR)/constraints.pcf
 	nextpnr-ice40 --hx8k --json $(BUILD_DIR)/synthesis.json --asc $(BUILD_DIR)/pnr.asc --package cb132 --pcf $(SRC_DIR)/constraints.pcf --freq 32
