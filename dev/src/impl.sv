@@ -1,3 +1,4 @@
+// Brainf*** "interpreter" logic
 `default_nettype none
 
 module BF #(
@@ -5,10 +6,8 @@ module BF #(
   parameter PROG_ADDR_WIDTH = 15,
   parameter DATA_WIDTH = 8,
   parameter DEPTH_WIDTH = 12,
-//  parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),
-  parameter ADDR_WIDTH = 15,
-//  parameter BUS_WIDTH = max(DATA_WIDTH, 8)
-  parameter BUS_WIDTH = 8
+  parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),
+  parameter BUS_WIDTH = max(DATA_WIDTH, 8)
 )(
   // Bus interface
   output logic [ADDR_WIDTH-1:0] addr,
@@ -23,27 +22,13 @@ module BF #(
   input  logic clock,
   input  logic reset,
   input  logic enable,
-
-  // Debug outputs
-  output BFState state, next_state,
-  output Ucode ucode
 );
 
-  // Program memory interface
-  logic [PROG_ADDR_WIDTH-1:0] pc, next_pc;
+  // Current microcode instruction and state
+  BFState state, next_state;
+  Ucode ucode;
 
-  // Data memory interface
-  logic [DATA_ADDR_WIDTH-1:0] cursor, next_cursor;
-  logic [DATA_WIDTH-1:0] acc, next_acc;
-
-  // Loop depth register
-  logic [DEPTH_WIDTH-1:0] depth, next_depth;
-  
-  // Current microcode instruction
-  //Ucode ucode;
-
-  // Bus operation
-  assign bus_op = ucode.bus_op;
+  /// Datapath and registers ///
 
   // Address source
   always_comb case (ucode.addr_src)
@@ -51,7 +36,7 @@ module BF #(
     AddrPc: addr = pc;
     AddrCursor: addr = cursor;
     default: addr = '0;
-  endcase 
+  endcase
 
   // Bus val source
   always_comb case (ucode.val_src)
@@ -62,6 +47,8 @@ module BF #(
     default: val_out = '0;
   endcase
 
+  // Program counter
+  logic [PROG_ADDR_WIDTH-1:0] pc, next_pc;
   always_comb case (ucode.pc_op)
     PcKeep: next_pc = pc;
     PcInc: next_pc = pc + 1;
@@ -69,6 +56,8 @@ module BF #(
     default: next_pc = pc;
   endcase
 
+  // Data cursor
+  logic [DATA_ADDR_WIDTH-1:0] cursor, next_cursor;
   always_comb case (ucode.cursor_op)
     CursorKeep: next_cursor = cursor;
     CursorInc: next_cursor = cursor + 1;
@@ -76,12 +65,16 @@ module BF #(
     default: next_cursor = cursor;
   endcase
 
+  // Accumulator
+  logic [DATA_WIDTH-1:0] acc, next_acc;
   always_comb case (ucode.acc_op)
     AccKeep: next_acc = acc;
     AccLoad: next_acc = val_in;
     default: next_acc = acc;
   endcase
 
+  // Loop depth register
+  logic [DEPTH_WIDTH-1:0] depth, next_depth;
   always_comb case (ucode.depth_op)
     DepthKeep: next_depth = depth;
     DepthClear: next_depth = '0;
@@ -90,7 +83,11 @@ module BF #(
     default: next_depth = depth;
   endcase
 
-  // Sequential logic
+  // Bus operation
+  assign bus_op = ucode.bus_op;
+
+  /// Datapath and FSM sequential logic ///
+
   always_ff @(posedge clock)
     if (reset) begin
       pc <= '0;
@@ -109,6 +106,8 @@ module BF #(
 
       state <= next_state;
     end
+
+  /// FSM implementation ///
 
   always_comb begin
     // default values
@@ -178,7 +177,7 @@ module BF #(
         ucode = {BusWriteData, AddrCursor, ValAccDec, PcKeep, CursorKeep, AccKeep, DepthClear};
         next_state = Fetch;
       end
-      
+
       /// Instruction ">" (Right) ///
       Right: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorInc, AccKeep, DepthClear};
@@ -207,7 +206,7 @@ module BF #(
         ucode = {BusWriteIo, AddrNone, ValAcc, PcKeep, CursorKeep, AccKeep, DepthClear};
         next_state = Fetch;
       end
-      
+
       /// Instruction "," (Read) ///
       // Request value from IO
       ReadFetch: begin
@@ -245,7 +244,6 @@ module BF #(
         next_state = BrzDecodeInstr;
       end
       // Receive instruction and decode
-      // TODO: optimize? if I make it Mealy then this is way simpler
       BrzDecodeInstr: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthKeep};
         case (val_in)
@@ -269,14 +267,14 @@ module BF #(
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthDec};
         next_state = BrzFetchInstr;
       end
-      
+
       /// Instruction "]" (Brnz) ///
       // Request cell value to check
       BrnzFetchVal: begin
         ucode = {BusReadData, AddrCursor, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
         next_state = BrnzDecodeVal;
       end
-      // Branch forward if zero
+      // Branch backward if nonzero
       BrnzDecodeVal: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthClear};
         if (val_in == '0)
@@ -331,7 +329,7 @@ module BF #(
         ucode = {BusNone, AddrNone, ValNone, PcInc, CursorKeep, AccKeep, DepthClear};
         next_state = Fetch;
       end
-    
+
       // should be unreachable
       default: begin
         ucode = {BusNone, AddrNone, ValNone, PcKeep, CursorKeep, AccKeep, DepthKeep};

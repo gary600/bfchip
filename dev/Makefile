@@ -3,35 +3,33 @@ export SRC_DIR ?= $(PWD)/src
 
 SV2V ?= sv2v
 YOSYS ?= yosys
-
-SV_FILES += $(wildcard $(SRC_DIR)/*.sv)
-# for CocoTB
-#export VERILOG_SOURCES += $(SRC_DIR)/impl.sv $(SRC_DIR)/sim_top.sv
-export _VERILOG_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv
-export VERILOG_SOURCES = $(BUILD_DIR)/all_sim.v
+NEXTPNR ?= nextpnr-ice40
+ICEPACK ?= icepack
 
 DIR_GUARD = mkdir -p $(@D)
 export PYTHONDONTWRITEBYTECODE=1
 
 .PHONY: all clean test fpga stat chip
-all: sim
+all: test
 
 clean:
 	rm -rf $(BUILD_DIR)
 
-# Testbench stuff: delegate to CocoTB
+## Sim/testbench stuff: delegate to CocoTB ##
+SIM_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv
+export VERILOG_SOURCES = $(BUILD_DIR)/all_sim.v
+
 test: $(VERILOG_SOURCES)
 	$(MAKE) --no-print-directory -f cocotb.mk
 
-
-$(BUILD_DIR)/all_sim.v: $(_VERILOG_SOURCES)
+$(BUILD_DIR)/all_sim.v: $(SIM_SOURCES)
 	$(DIR_GUARD)
-	$(SV2V) -w $(BUILD_DIR)/all_sim.v $(_VERILOG_SOURCES)
+	$(SV2V) -w $(BUILD_DIR)/all_sim.v $(SIM_SOURCES)
 
-# FPGA stuff
+## FPGA stuff ##
 fpga: $(BUILD_DIR)/bitstream.bit
 
-FPGA_SOURCES = $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv $(SRC_DIR)/fpga_top.sv $(SRC_DIR)/debugbus.sv
+FPGA_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv $(SRC_DIR)/fpga_top.sv $(SRC_DIR)/debugbus.sv
 
 $(BUILD_DIR)/all_fpga.v: $(FPGA_SOURCES)
 	$(DIR_GUARD)
@@ -42,18 +40,16 @@ $(BUILD_DIR)/synthesis.json: $(BUILD_DIR)/all_fpga.v
 	$(YOSYS) -p "read_verilog -sv $(BUILD_DIR)/all_fpga.v; synth_ice40 -json $(BUILD_DIR)/synthesis.json -top top"
 
 $(BUILD_DIR)/pnr.asc: $(BUILD_DIR)/synthesis.json $(SRC_DIR)/constraints.pcf
-	nextpnr-ice40 --hx8k --json $(BUILD_DIR)/synthesis.json --asc $(BUILD_DIR)/pnr.asc --package cb132 --pcf $(SRC_DIR)/constraints.pcf --freq 32
+	$(NEXTPNR) --hx8k --json $(BUILD_DIR)/synthesis.json --asc $(BUILD_DIR)/pnr.asc --package cb132 --pcf $(SRC_DIR)/constraints.pcf --freq 32
 
 $(BUILD_DIR)/bitstream.bit: $(BUILD_DIR)/pnr.asc
-	icepack $(BUILD_DIR)/pnr.asc $(BUILD_DIR)/bitstream.bit
+	$(ICEPACK) $(BUILD_DIR)/pnr.asc $(BUILD_DIR)/bitstream.bit
 
-stat: $(BUILD_DIR)/synthesis.json
+## Tapeout stuff ##
+tapeout: $(BUILD_DIR)/all_tapeout.v
 
-# Tapeout stuff
-chip: $(BUILD_DIR)/chip.v
+TAPEOUT_SOURCES += $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv
 
-CHIP_SOURCES = $(SRC_DIR)/consts.sv $(SRC_DIR)/impl.sv $(SRC_DIR)/chip.sv
-
-$(BUILD_DIR)/chip.v: $(CHIP_SOURCES)
+$(BUILD_DIR)/all_tapeout.v: $(TAPEOUT_SOURCES)
 	$(DIR_GUARD)
-	$(SV2V) -w $(BUILD_DIR)/chip.v $(CHIP_SOURCES)
+	$(SV2V) -w $(BUILD_DIR)/all_tapeout.v $(TAPEOUT_SOURCES)

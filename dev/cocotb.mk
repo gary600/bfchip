@@ -1,7 +1,7 @@
+# "Sub-makefile" for interfacing with CocoTB
+
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
-
-# VERILOG_SOURCES += $(BUILD_DIR)/all.v
 
 TOPLEVEL = BF
 MODULE = src.bf_test

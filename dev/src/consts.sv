@@ -1,3 +1,4 @@
+// Types, constants, and functions used in the design
 `default_nettype none
 
 typedef enum logic [2:0] {

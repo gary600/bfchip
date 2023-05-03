@@ -1,5 +1,7 @@
+// Top module for tapeout: multiplexes BF's bus and connects to final ports
 `default_nettype none
 
+// Name and ports are set by build system
 module my_chip (
   input logic [11:0] io_in, // Inputs to your chip
   output logic [11:0] io_out, // Outputs from your chip
@@ -7,14 +9,11 @@ module my_chip (
   input logic reset // Important: Reset is ACTIVE-HIGH
 );
 
-  logic halted;
-  logic bf_enable;
-
   // Outputs / inputs
   logic [7:0] bus_out;
   IoOp state, next_state;
+  logic halted;
   assign io_out = {halted, state, bus_out};
-  //assign io_out = {halted, state, 2'b0, bfstate};
 
   logic [7:0] bus_in;
   assign bus_in = io_in[7:0];
@@ -27,8 +26,7 @@ module my_chip (
   logic [14:0] addr;
   logic [7:0] val_in, val_out;
   BusOp bus_op;
-
-  BFState bfstate;
+  logic bf_enable;
 
   BF bf (
     .addr,
@@ -38,11 +36,7 @@ module my_chip (
     .halted,
     .clock,
     .reset,
-    .enable(enable && bf_enable),
-    // Debug outputs
-    .state(bfstate),
-    .next_state(),
-    .ucode()
+    .enable(enable && bf_enable)
   );
 
   BusOp op_cache;
@@ -63,8 +57,6 @@ module my_chip (
       IoNone: begin
         bf_enable = 1;
         cache_out = 1;
-        // bus_out = {2'b0, bfstate}; // debug outputs
-        bus_out = val_in;
 
         if (bus_op != BusNone)
           next_state = IoOpcode;
@@ -92,7 +84,7 @@ module my_chip (
 
         if (op_done)
           next_state = IoNone;
-        else 
+        else
           next_state = IoReadWrite;
       end
       default: next_state = IoNone;

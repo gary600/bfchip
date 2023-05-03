@@ -1,3 +1,5 @@
+# Constraints file for running on Alchitry Cu
+
 set_io clk100 P7
 set_io reset_n P8
 

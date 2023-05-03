@@ -33,8 +33,8 @@ jobs:
     - name: generate chip.sv
       run: |
         cd dev
-        make SV2V="$HOME/sv2v-Linux/sv2v" chip
-        cp build/chip.v ../src/chip.sv
+        make SV2V="$HOME/sv2v-Linux/sv2v" tapeout
+        cp build/all_tapeout.v ../src/
 
     # build PDK and fetch OpenLane
     - name: pdk & caravel

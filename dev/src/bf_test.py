@@ -22,14 +22,17 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
     stdin = bytearray(stdin)
 
     actual_stdout = bytearray()
-    
+
     memory = bytearray(65536)
 
     # Reset and initial values
-    dut.clock.value = 0
     dut.val_in.value = 0
+    dut.clock.value = 0
     dut.reset.value = 1
     await Timer(10, "ns")
+    dut.clock.value = 1
+    await Timer(10, "ns")
+    dut.clock.value = 0
     dut.reset.value = 0
     dut.enable.value = 1
     await Timer(10, "ns")
@@ -68,9 +71,9 @@ async def test_program(dut, prog, stdin=b"", stdout=b"", failread=None):
         elif bus_op == 0b111: # BusWriteIo
             actual_stdout.append(val_out.integer)
             dbg("writing io")
-            
+
         await Timer(10, "ns")
-    
+
     assert(entered_loop)
     dbg(stdout, actual_stdout)
     assert(stdout == actual_stdout)
@@ -80,7 +83,7 @@ tests_dir = Path(__file__).parent / "tests"
 for test_file in tests_dir.iterdir():
     with open(test_file, "rb") as f:
         test = tomli.load(f)
-    
+
     async def test_fn(dut, test=test):
         await test_program(
             dut,
@@ -89,7 +92,7 @@ for test_file in tests_dir.iterdir():
             test.get("output", ""),
             failread=test.get("input_end", None)
         )
-    
+
     test_fn.__name__ = test["name"]
     test_fn.__qualname__ = test["name"]
     vars()[test["name"]] = \

@@ -1,3 +1,4 @@
+// Top module for running on FPGA: just connects to debug harness.
 `default_nettype none
 
 module top (

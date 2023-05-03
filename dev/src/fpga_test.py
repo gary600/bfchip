@@ -1,5 +1,6 @@
+# Runs the Hello World program on the FPGA
+
 from interface import Chip
-import time
 
 IoNone          = 0b000
 IoOpcode        = 0b001
@@ -19,7 +20,7 @@ class Inputs:
         self.op_done = 0
         self.enable = 0
         self.chip = chip
-    
+
     def set(self):
         val = (self.enable << 9) | (self.op_done << 8) | self.bus_in
         self.chip.set_all_inputs(val)
@@ -33,7 +34,7 @@ class Outputs:
         self.state = 0
         self.halted = 0
         self.chip = chip
-    
+
     def get(self):
         out = self.chip.get_all_outputs()
         self.bus_out = out & 0x0FF
@@ -84,7 +85,7 @@ while not outputs.halted:
             if addr >= len(prog):
                 inputs.bus_in = 0
             else:
-                inputs.bus_in = prog[addr] 
+                inputs.bus_in = prog[addr]
             print(f"reading program [{addr:04x}]: {chr(inputs.bus_in)}")
         elif opcode == BusReadData:
             inputs.bus_in = data[addr]

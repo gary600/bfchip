@@ -1,3 +1,5 @@
+# Code for interfacing with debug harness on FPGA (from asinghani/wbdbgbus)
+
 import time
 from serial import Serial
 
@@ -354,5 +356,3 @@ class _DebugBus:
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.close()
-
-

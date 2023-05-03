@@ -1,0 +1,7 @@
+name = "io_test"
+
+program = ">,>+++++++++,>+++++++++++[<++++++<++++++<+>>>-]<<.>.<<-.>.>.<<."
+
+input = "\n"
+input_end = 0
+output = "LB\nLB\n" # L=newline, B=null

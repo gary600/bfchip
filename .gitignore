@@ -1,6 +1,9 @@
-/build/
+.DS_Store
+*.vcd
 
 __pycache__/
 
-/src/old/
-/src/new/
+/dev/build
+
+# automatically generated
+/src/all_tapeout.v
