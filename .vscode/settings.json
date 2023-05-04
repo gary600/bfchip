@@ -1,11 +1,13 @@
 {
-    "files.trimTrailingWhitespace": true,
-    "files.insertFinalNewline": true,
-    "files.eol": "\n",
-    "[brainfuck]": {
-        "editor.fontLigatures": false
-    },
-    "[systemverilog]": {
-        "editor.tabSize": 2
-    }
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+  "editor.tabSize": 2,
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+  "[brainfuck]": {
+    "editor.fontLigatures": false
+  }
 }
