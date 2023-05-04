@@ -1,9 +1,9 @@
-// Brainf*** "interpreter" logic
+// Brainf*** "CPU" core
 `default_nettype none
 
 module BF #(
-  parameter DATA_ADDR_WIDTH = 15,
-  parameter PROG_ADDR_WIDTH = 15,
+  parameter DATA_ADDR_WIDTH = 16,
+  parameter PROG_ADDR_WIDTH = 16,
   parameter DATA_WIDTH = 8,
   parameter DEPTH_WIDTH = 12,
   parameter ADDR_WIDTH = max(DATA_ADDR_WIDTH, PROG_ADDR_WIDTH),

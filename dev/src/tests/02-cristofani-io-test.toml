@@ -1,5 +1,6 @@
 name = "io_test"
 
+# Program by Daniel Cristofani
 program = ">,>+++++++++,>+++++++++++[<++++++<++++++<+>>>-]<<.>.<<-.>.>.<<."
 
 input = "\n"

@@ -1,7 +1,7 @@
 name = "isort"
 
 # Program by Daniel Cristofani
-program = """ [isort.b -- insertion sort
+program = """[isort.b -- insertion sort
 (c) 2016 Daniel B. Cristofani
 http://brainfuck.org/]
 

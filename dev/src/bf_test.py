@@ -1,6 +1,7 @@
+# Runs the test suite in simulation
+
 import cocotb
-from cocotb.triggers import Timer, FallingEdge, RisingEdge
-from cocotb.clock import Clock
+from cocotb.triggers import Timer
 import os
 from pathlib import Path
 import tomli
@@ -94,5 +95,7 @@ for test_file in tests_dir.iterdir():
 
   test_fn.__name__ = test["name"]
   test_fn.__qualname__ = test["name"]
-  vars()[test["name"]] = \
-    cocotb.test(skip=test.get("slow", False), stage=test.get("stage", 0))(test_fn)
+  vars()[test["name"]] = cocotb.test(
+    skip=test.get("slow", False),
+    stage=test.get("stage", 0)
+  )(test_fn)

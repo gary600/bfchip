@@ -6,7 +6,7 @@ typedef enum logic [2:0] {
   IoOpcode    = 3'b001, // Outputting opcode
   IoAddrHi    = 3'b010, // Outputting Address MSB
   IoAddrLo    = 3'b011, // Outputting Address LSB
-  IoReadWrite = 3'b100  // Outputting write / inputting read (waits until Ready)
+  IoReadWrite = 3'b100  // Outputting write / inputting read (waits until done)
 } IoOp;
 
 typedef enum logic [2:0] {
@@ -109,6 +109,7 @@ typedef enum logic [5:0] {
   BrnzPcInc2
 } BFState;
 
-function int max(int a, int b);
+// Simple max function for determining port sizes
+function integer max(integer a, integer b);
   max = (a > b) ? a : b;
 endfunction

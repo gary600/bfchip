@@ -23,7 +23,7 @@ module my_chip (
   assign enable = io_in[9];
 
   // BF interface
-  logic [14:0] addr;
+  logic [15:0] addr;
   logic [7:0] val_in, val_out;
   BusOp bus_op;
   logic bf_enable;
@@ -69,7 +69,7 @@ module my_chip (
         next_state = IoAddrHi;
       end
       IoAddrHi: begin
-        bus_out = {1'b0, addr_cache[14:8]};
+        bus_out = addr_cache[15:8];
 
         next_state = IoAddrLo;
       end

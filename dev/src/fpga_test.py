@@ -1,6 +1,8 @@
-# Runs the Hello World program on the FPGA
+# Runs a program on the FPGA.
 
 from interface import Chip
+import sys
+import tomli
 
 IoNone          = 0b000
 IoOpcode        = 0b001
@@ -27,7 +29,8 @@ class Inputs:
 
   def __repr__(self):
     return f"bus_in={self.bus_in:08b}, " \
-            "op_done={self.op_done:b}, enable={self.enable:b}"
+           f"op_done={self.op_done:b}, " \
+           f"enable={self.enable:b}"
 
 class Outputs:
   def __init__(self, chip):
@@ -43,9 +46,16 @@ class Outputs:
     self.halted = (out & 0x800) >> 11
 
   def __repr__(self):
-    return f"bus_out={self.bus_out:08b}, "\
-        "state={self.state:03b}, halted={self.halted:b}"
+    return f"bus_out={self.bus_out:08b}, " \
+           f"state={self.state:03b}, " \
+           f"halted={self.halted:b}"
 
+with open(sys.argv[1], "rb") as f:
+  infile = tomli.load(f)
+  prog = bytearray(infile["program"].encode("ascii"))
+  stdin = bytearray(infile.get("input", "").encode("ascii"))
+  input_end = infile.get("input_end", 0)
+  stdout = bytearray(infile.get("output", "").encode("ascii"))
 
 chip = Chip("/dev/ttyUSB1")
 inputs = Inputs(chip)
@@ -65,8 +75,6 @@ opcode = 0
 addr_hi = 0
 addr_lo = 0
 
-# memory
-prog = bytearray(b"++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.")
 data = bytearray(65536)
 output = bytearray()
 
@@ -96,10 +104,13 @@ while not outputs.halted:
       data[addr] = outputs.bus_out
       print(f"writing data    [{addr:04x}]: {outputs.bus_out}")
     elif opcode == BusReadIo:
-      inputs.bus_in = 0 #TODO:
-      print(f"reading io (unimplemented)")
+      if len(stdin) > 0:
+        inputs.bus_in = stdin.pop(0)
+      else:
+        inputs.bus_in = input_end
+      print(f"reading io            : {chr(inputs.bus_in)}")
     elif opcode == BusWriteIo:
-      print(f"writing io                  : {chr(outputs.bus_out)}")
+      print(f"writing io            : {chr(outputs.bus_out)}")
       output.append(outputs.bus_out)
     inputs.op_done = 1
     inputs.set()
@@ -107,4 +118,9 @@ while not outputs.halted:
   chip.step_clock()
   cycles += 1
 
-print(f"halted, ran {cycles} cycles. output: {output}")
+print(f"halted, ran {cycles} cycles")
+if output == stdout:
+  print(f"output: {bytes(output)}, success!")
+else:
+  print(f"output: {bytes(output)}, differs from expected: {bytes(stdout)}")
+assert(output == stdout)
