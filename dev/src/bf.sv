@@ -1,4 +1,4 @@
-// Brainf*** "CPU" core
+// Brainf*** CPU core
 `default_nettype none
 
 module BF #(

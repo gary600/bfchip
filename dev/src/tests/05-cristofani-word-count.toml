@@ -1,6 +1,6 @@
 name = "word_count"
 
-# Program by Daniel Cristofani
+# Program by Daniel Cristofani, CC-BY-SA
 program = """>>>+>>>>>+>>+>>+[<<],[
     -[-[-[-[-[-[-[-[<+>-[>+<-[>-<-[-[-[<++[<++++++>-]<
         [>>[-<]<[>]<-]>>[<+>-[<->[-]]]]]]]]]]]]]]]]

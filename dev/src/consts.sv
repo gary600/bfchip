@@ -2,11 +2,11 @@
 `default_nettype none
 
 typedef enum logic [2:0] {
-  IoNone      = 3'b000, // No output on bus
-  IoOpcode    = 3'b001, // Outputting opcode
-  IoAddrHi    = 3'b010, // Outputting Address MSB
-  IoAddrLo    = 3'b011, // Outputting Address LSB
-  IoReadWrite = 3'b100  // Outputting write / inputting read (waits until done)
+  IoNone      = 3'b000,   // No output on bus
+  IoOpcode    = 3'b001,   // Outputting opcode
+  IoAddrHi    = 3'b010,   // Outputting Address MSB
+  IoAddrLo    = 3'b011,   // Outputting Address LSB
+  IoReadWrite = 3'b100    // Outputting write / inputting read (waits until done)
 } IoOp;
 
 typedef enum logic [2:0] {
@@ -66,30 +66,38 @@ typedef struct packed {
 } Ucode;
 
 typedef enum logic [5:0] {
+  // Misc
   Fetch,
   Decode,
   Halt,
 
+  // Inc "+"
   IncFetch,
   IncLoad,
   IncStore,
 
+  // Dec "-"
   DecFetch,
   DecLoad,
   DecStore,
 
+  // Right ">"
   Right,
 
+  // Left "<"
   Left,
 
+  // Print "."
   PrintFetch,
   PrintLoad,
   PrintStore,
 
+  // Read ","
   ReadFetch,
   ReadLoad,
   ReadStore,
 
+  // Brz "["
   BrzFetchVal,
   BrzDecodeVal,
   BrzFetchInstr,
@@ -97,6 +105,7 @@ typedef enum logic [5:0] {
   BrzInc,
   BrzDec,
 
+  // Brnz "]"
   BrnzFetchVal,
   BrnzDecodeVal,
   BrnzPcDec1,

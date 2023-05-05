@@ -16,7 +16,7 @@ documentation:
   language: "verilog"
   doc_link: "README.md"
   clock_hz: 1000
-  picture: ""
+  picture: "media/hello_world.png"
   inputs:
     - "See README.md"
   outputs:

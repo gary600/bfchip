@@ -1,6 +1,9 @@
+# Not the best rot13 implementation, but it's used here to test very deep
+# loop nesting.
+
 name = "rot13"
 
-# Program by Daniel Cristofani
+# Program by Daniel Cristofani, CC-BY-SA
 program = """,
 [>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-
 [>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-[>+<-

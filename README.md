@@ -1,15 +1,16 @@
 # bfchip: Brainf*** CPU
 Gary Bailey \
-Final Tapeout Project, Spring 2023 \
+Spring 2023 Final Tapeout Project \
 [18-224: Special Topics in Chip Design](https://courses.ece.cmu.edu/18224)
 
 ## Overview
-This project implements a simple CPU which interprets the esoteric programming
-language Brainf*** (BF) as its machine code. The version of BF implemented by
-this project actually contains one extension: in addition to the eight standard
-BF instructions `+-<>[].,`, a ninth instruction `\0` (0-byte) is implemented,
-which halts the CPU. Architecturally, this CPU is similar to the Harvard
-architecture, with separate 16-bit program and data address spaces.
+This project implements a simple CPU (written in SystemVerilog) which interprets
+the esoteric programming language Brainf*** (BF) as its machine code. The
+version of BF implemented by this project actually contains one extension: in
+addition to the eight standard BF instructions `+-<>[].,`, a ninth instruction
+`\0` (0-byte) is implemented, which halts the CPU. Architecturally, this CPU is
+similar to the Harvard architecture, with separate 16-bit program and data
+address spaces.
 
 ## How it Works
 This project consists mainly of two modules: `BF` (`dev/src/bf.sv`), the BF

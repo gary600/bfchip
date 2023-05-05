@@ -3,9 +3,8 @@
 
 module top (
   input logic clk100, // 100MHz clock
-  input logic reset_n, // Active-low reset
 
-  input logic uart_rx,
+  input logic uart_rx, // UART rx/tx from FTDI chip on FPGA
   output logic uart_tx
 );
 
