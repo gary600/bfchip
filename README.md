@@ -157,8 +157,7 @@ See [Hardware Peripherals](#hardware-peripherals) for more info.
 When asserted, the BF core has halted.
 
 ### Clock and reset
-This chip uses active-high, synchronous reset. The clock speed is not strictly
-set.
+This chip uses active-high, synchronous reset. The clock speed is not strict.
 
 ## Hardware Peripherals
 In order for the BF core to operate, the `bus_out`, `bus_in`, `state`, and
@@ -184,7 +183,9 @@ following protocol:
 The exact implementation/layout of the memory and I/O interfaced with the CPU is
 up to the designer of the memory/IO controller. Reasonable options would be a
 SPI flash interface for the program memory, SPI SRAM for the data memory, and a
-UART interface connected to a terminal for the I/O.
+UART interface connected to a terminal for the I/O. Beyond the interface itself,
+the controller must make sure to zero-out the data memory before program
+execution begins.
 
 ## Design Testing / Bringup
 The BF core itself is tested in simulation with CocoTB and is known to work on
