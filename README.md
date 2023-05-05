@@ -1,5 +1,7 @@
-# bfchip
-Gary Bailey 18-224 Spring 2023 Final Tapeout Project
+# bfchip: Brainf*** CPU
+Gary Bailey \
+Final Tapeout Project, Spring 2023 \
+[18-224: Special Topics in Chip Design](https://courses.ece.cmu.edu/18224)
 
 ## Overview
 This project implements a simple CPU which interprets the esoteric programming
@@ -26,12 +28,13 @@ These registers each have a set of operations which are defined in `consts.sv`.
 These operations are packed into the microinstruction word, which is output by
 each state in the main FSM.
 
-The FSM has 33 states in total. Its overall logical strucure is as follows. I've also included the alphabetic names used to refer to each instruction within the source code.
-(here, "instruction" refers to the byte in program memory at the program
-counter, and "cell" refers to the byte in data memory at the cursor)
+The FSM has 33 states in total. Its overall logical strucure is as follows. I've
+also included the alphabetic names used to refer to each instruction within the
+source code. (here, "instruction" refers to the byte in program memory at the
+program counter, and "cell" refers to the byte in data memory at the cursor)
 
 - Fetch/decode: Fetch instruction, increment `pc`, then:
-  - if the instruction is one of the recognized instructions, switch to that
+  - if the instruction is one of the recognized instructions, go to that
     instructions's stage
   - otherwise, return to Fetch/decode
 - Inc (`+`): Fetch cell, load cell into `acc`, store `acc+1` into cell, return
@@ -146,6 +149,7 @@ ignored during the opcode step):
 | `3'b101` | `BusWriteData` | Write to the data memory     |
 | `3'b110` | `BusReadIo`    | Read from I/O                |
 | `3'b111` | `BusWriteIo`   | Write to I/O                 |
+
 See [Hardware Peripherals](#hardware-peripherals) for more info.
 
 #### `halted`
@@ -176,6 +180,11 @@ following protocol:
   - If `opcode == BusWriteIo`, write `bus_out` to the output stream on the
     clock, then assert `op_done`
 
+The exact implementation/layout of the memory and I/O interfaced with the CPU is
+up to the designer of the memory/IO controller. Reasonable options would be a
+SPI flash interface for the program memory, SPI SRAM for the data memory, and a
+UART interface connected to a terminal for the I/O.
+
 ## Design Testing / Bringup
 The BF core itself is tested in simulation with CocoTB and is known to work on
 the Icarus backend. Running `make test` in `dev/` will run the test suite, which
@@ -190,6 +199,10 @@ passed a TOML file containing a program, inputs, and expected outputs. Several
 of these programs can be found in `dev/src/tests/`.
 
 ## Media
-Here's a screenshot of the Hello World program successfully running on FPGA, using the debug interface:
+Hello World program successfully running on FPGA, using the debug interface: \
 ![Screenshot of bfchip successfully running Hello World on
 FPGA](hello_world_screenshot.png)
+
+Test suite passing (skipping the `quine` test due to it taking very long to
+run): \
+![Screenshot of bfchip passing the test suite](cocotb_screenshot.png)
