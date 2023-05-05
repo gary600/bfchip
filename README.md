@@ -200,6 +200,10 @@ act as the memory/IO controller and run a program on the CPU. It needs to be
 passed a TOML file containing a program, inputs, and expected outputs. Several
 of these programs can be found in `dev/src/tests/`.
 
+To test the design after manufacture, implement a memory/IO interface as defined
+in [Hardware Peripherals](#hardware-peripherals), and use it to run BF test
+programs on the CPU, such as those included in `dev/src/tests/`.
+
 ## Media
 Hello World program successfully running on FPGA, using the debug interface: \
 ![Screenshot of bfchip successfully running Hello World on
