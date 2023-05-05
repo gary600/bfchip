@@ -95,6 +95,9 @@ module my_chip (
     if (reset) begin
       state <= IoNone;
       op_cache <= BusNone;
+      addr_cache <= '0;
+      val_cache <= '0;
+      val_in <= '0;
     end
     else if (enable) begin
       state <= next_state;

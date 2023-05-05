@@ -50,6 +50,9 @@ class Outputs:
            f"state={self.state:03b}, " \
            f"halted={self.halted:b}"
 
+if len(sys.argv) < 2:
+  print("must provide a .toml file with the program and expected IO")
+  exit(1)
 with open(sys.argv[1], "rb") as f:
   infile = tomli.load(f)
   prog = bytearray(infile["program"].encode("ascii"))
