@@ -201,8 +201,9 @@ of these programs can be found in `dev/src/tests/`.
 ## Media
 Hello World program successfully running on FPGA, using the debug interface: \
 ![Screenshot of bfchip successfully running Hello World on
-FPGA](hello_world_screenshot.png)
+FPGA](media/hello_world.png)
 
-Test suite passing (skipping the `quine` test due to it taking very long to
-run): \
-![Screenshot of bfchip passing the test suite](cocotb_screenshot.png)
+Test suite passing: \
+![Screenshot of bfchip passing the test suite, except for the "quine"
+test](media/tests_passing.png) \
+![Screenshot of bfchip passing the "quine" test](media/quine_passing.png)
